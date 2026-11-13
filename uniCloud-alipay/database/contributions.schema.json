@@ -1,0 +1,53 @@
+{
+	"bsonType": "object",
+	"required": ["openid"],
+	"permission": {
+		"read": false,
+		"create": false,
+		"update": false,
+		"delete": false
+	},
+	"properties": {
+		"_id": {
+			"description": "ID，系统自动生成"
+		},
+		"openid": {
+			"bsonType": "string",
+			"title": "贡献者OpenID"
+		},
+		"name": {
+			"bsonType": "string",
+			"title": "贡献者名称",
+			"trim": "both"
+		},
+		"action": {
+			"bsonType": "string",
+			"title": "贡献动作",
+			"enum": [{
+				"value": "add",
+				"text": "新增地点"
+			}, {
+				"value": "update",
+				"text": "修改地点"
+			}, {
+				"value": "submit",
+				"text": "投稿"
+			}]
+		},
+		"spot_id": {
+			"bsonType": "string",
+			"title": "地点ID"
+		},
+		"spot_name": {
+			"bsonType": "string",
+			"title": "地点名称"
+		},
+		"create_date": {
+			"bsonType": "timestamp",
+			"title": "贡献时间",
+			"forceDefaultValue": {
+				"$env": "now"
+			}
+		}
+	}
+}

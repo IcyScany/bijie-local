@@ -1,0 +1,61 @@
+{
+	"bsonType": "object",
+	"required": ["openid"],
+	"permission": {
+		"read": false,
+		"create": false,
+		"update": false,
+		"delete": false
+	},
+	"properties": {
+		"_id": {
+			"description": "ID，系统自动生成"
+		},
+		"openid": {
+			"bsonType": "string",
+			"title": "微信OpenID",
+			"description": "微信小程序用户唯一标识"
+		},
+		"nickname": {
+			"bsonType": "string",
+			"title": "昵称",
+			"trim": "both"
+		},
+		"avatar": {
+			"bsonType": "string",
+			"title": "头像"
+		},
+		"is_admin": {
+			"bsonType": "bool",
+			"title": "是否管理员",
+			"defaultValue": false
+		},
+		"contribution_count": {
+			"bsonType": "int",
+			"title": "贡献次数",
+			"defaultValue": 0
+		},
+		"last_contribution_date": {
+			"bsonType": "timestamp",
+			"title": "最近贡献时间"
+		},
+		"last_login_date": {
+			"bsonType": "timestamp",
+			"title": "最近登录时间"
+		},
+		"create_date": {
+			"bsonType": "timestamp",
+			"title": "创建时间",
+			"forceDefaultValue": {
+				"$env": "now"
+			}
+		},
+		"update_date": {
+			"bsonType": "timestamp",
+			"title": "更新时间",
+			"forceDefaultValue": {
+				"$env": "now"
+			}
+		}
+	}
+}
