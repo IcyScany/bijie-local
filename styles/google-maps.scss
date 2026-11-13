@@ -1,0 +1,1208 @@
+/* ============================================
+ * Google Maps Design System
+ * Material Design 3 工具类库
+ * 使用方式：在页面中添加 class="gm-xxx"
+ * ============================================ */
+
+/* ── 设计 Tokens - Google Maps 实际配色系统 ── */
+/* 基于谷歌地图真实使用的颜色方案 */
+
+/* 主色系统 - Teal/Cyan 系列 */
+$google-teal-dark: #007B8B;    // Active state - 深青色
+$google-teal-light: #D3F7FF;   // Normal state - 浅青色背景
+$google-teal-text: #014F5A;    // Font color - 深青文本
+
+/* 兼容颜色 */
+$brand: #007B8B;               // 主品牌色（深青）
+$brand-soft: #D3F7FF;          // 品牌浅色背景
+$brand-text: #014F5A;          // 品牌文字色
+
+$success: #0F9D58;             // Google Green
+$success-soft: #E6F4EA;        // Light Green
+$warning: #FBBB05;             // Google Yellow
+$warning-soft: #FEF7E0;        // Light Yellow
+$danger: #E94335;              // Google Red
+$danger-soft: #F8D7DA;         // Light Red
+$teal: #007B8B;                // Teal (reuse)
+$teal-soft: #D3F7FF;           // Light Teal
+
+/* 背景和表面颜色 */
+$bg-page: #F8F9FA;             // Light background
+$bg-card: #FFFFFF;             // White surfaces
+$bg-fill: #F1F3F4;             // Subtle fill
+
+/* 文本颜色 */
+$text-main: #202124;           // Primary text
+$text-primary: #202124;     
+$text-secondary: #5F6368;      // Secondary text
+$text-tertiary: #9AA0A6;       // Tertiary text
+$text-placeholder: #BDC1C6;    // Placeholder
+$text-regular: #5F6368;     
+$text-inverse: #FFFFFF;        // White text
+$text-disabled: #DADCE0;       // Disabled state
+
+/* 边框和分割线 */
+$border-color: #E8EAED;
+$border-strong: #DADCE0;
+
+/* 圆角系统 */
+$radius-xs: 4rpx;
+$radius-sm: 8rpx;
+$radius-md: 12rpx;
+$radius-pill: 100rpx;
+$radius-xl: 20rpx;
+
+/* 间距系统 */
+$space-xs: 8rpx;
+$space-sm: 16rpx;
+$space-md: 24rpx;
+$space-lg: 32rpx;
+$space-xl: 40rpx;
+
+/* 阴影系统 */
+$shadow-card: 0 2rpx 6rpx rgba(0, 0, 0, 0.1);
+$shadow-elevated: 0 4rpx 12rpx rgba(0, 0, 0, 0.15);
+$shadow-floating: 0 8rpx 24rpx rgba(0, 0, 0, 0.2);
+
+/* 动画 */
+$duration-fast: 200ms;
+$duration-normal: 300ms;
+$duration-slow: 500ms;
+
+/* 字体大小 */
+$fs-xs: 24rpx;
+$fs-sm: 26rpx;
+$fs-md: 28rpx;
+$fs-lg: 32rpx;
+$fs-xl: 36rpx;
+$fs-2xl: 42rpx;
+
+/* ── Google Maps 容器 ── */
+.gm-page {
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+	background-color: $bg-page;
+	overflow: hidden;
+	position: relative;
+}
+
+.gm-container {
+	padding: $space-md;
+	background-color: $bg-page;
+}
+
+/* ── Google Maps 卡片 ── */
+.gm-card {
+	background-color: $bg-card;
+	border-radius: $radius-sm;
+	box-shadow: $shadow-card;
+	overflow: hidden;
+	transition: all $duration-fast cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gm-card-flat {
+	background-color: $bg-card;
+	border-radius: $radius-sm;
+	box-shadow: none;
+	border: 1rpx solid $border-color;
+}
+
+.gm-card-hover:active {
+	background-color: rgba(26, 115, 232, 0.08);
+}
+
+/* 地图页卡片样式 */
+.gm-card-map {
+	background-color: #FFFFFF;
+	border-radius: 12rpx;
+	box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.1);
+	overflow: hidden;
+	transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gm-card-map:active {
+	box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.15);
+	transform: scale(0.98);
+}
+
+/* ── Google Maps 列表项 ── */
+.gm-list-item {
+	display: flex;
+	align-items: center;
+	padding: 20rpx 24rpx;
+	background-color: $bg-card;
+	transition: background-color $duration-fast cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gm-list-item:active {
+	background-color: rgba(26, 115, 232, 0.08);
+}
+
+.gm-list-item:not(:last-child) {
+	border-bottom: 1rpx solid $border-color;
+}
+
+.gm-list-item-icon {
+	width: 80rpx;
+	height: 80rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: $radius-sm;
+	margin-right: 20rpx;
+	flex-shrink: 0;
+	background-color: $bg-fill;
+}
+
+.gm-list-item-content {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.gm-list-item-title {
+	font-size: 30rpx;
+	font-weight: 500;
+	color: $text-main;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	line-height: 1.3;
+}
+
+.gm-list-item-subtitle {
+	font-size: 24rpx;
+	color: $text-secondary;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	margin-top: 4rpx;
+	line-height: 1.4;
+}
+
+.gm-list-item-arrow {
+	width: 40rpx;
+	height: 40rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	margin-left: 16rpx;
+	font-size: 28rpx;
+	color: $text-disabled;
+}
+
+/* ── Google Maps 按钮 ── */
+.gm-btn {
+	height: 88rpx;
+	line-height: 88rpx;
+	padding: 0 48rpx;
+	font-size: 28rpx;
+	font-weight: 500;
+	text-align: center;
+	border-radius: 100rpx;
+	transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+	border: none;
+	position: relative;
+	overflow: hidden;
+	cursor: pointer;
+}
+
+.gm-btn:active:not([disabled]) {
+	opacity: 0.88;
+	transform: scale(0.96);
+}
+
+.gm-btn[disabled] {
+	opacity: 0.38;
+	cursor: not-allowed;
+}
+
+/* Material Design 3: 强调级别 1 - 填充按钮（主要操作） */
+.gm-btn-filled {
+	color: #FFFFFF;
+	background-color: $brand;
+	box-shadow: 0 3rpx 12rpx rgba(0, 123, 139, 0.12);
+}
+
+.gm-btn-filled:active:not([disabled]) {
+	box-shadow: 0 6rpx 20rpx rgba(0, 123, 139, 0.18);
+	background-color: #006478;
+}
+
+/* 填充按钮 - 危险操作 */
+.gm-btn-filled-danger {
+	color: #FFFFFF;
+	background-color: $danger;
+	box-shadow: 0 3rpx 12rpx rgba(234, 67, 53, 0.12);
+}
+
+.gm-btn-filled-danger:active:not([disabled]) {
+	background-color: #c5392a;
+	box-shadow: 0 6rpx 20rpx rgba(234, 67, 53, 0.18);
+}
+
+/* Material Design 3: 强调级别 2 - 填充色调按钮（次要操作） */
+.gm-btn-tonal {
+	color: $brand;
+	background-color: #D3F7FF;
+	box-shadow: none;
+	border: none;
+}
+
+.gm-btn-tonal:active:not([disabled]) {
+	background-color: #A8EEFF;
+	box-shadow: 0 2rpx 8rpx rgba(0, 123, 139, 0.1);
+}
+
+/* Material Design 3: 强调级别 3 - 外框按钮（支持操作） */
+.gm-btn-outlined {
+	color: $brand;
+	background-color: transparent;
+	border: 1.5rpx solid #DADCE0;
+	box-shadow: none;
+}
+
+.gm-btn-outlined:active:not([disabled]) {
+	background-color: rgba(0, 123, 139, 0.08);
+	border-color: $brand;
+}
+
+/* Material Design 3: 强调级别 4 - 文字按钮（轻操作） */
+.gm-btn-text {
+	color: $brand;
+	background-color: transparent;
+	box-shadow: none;
+	border: none;
+}
+
+.gm-btn-text:active:not([disabled]) {
+	background-color: rgba(0, 123, 139, 0.12);
+}
+
+/* 小尺寸按钮 */
+.gm-btn-sm {
+	height: 64rpx;
+	line-height: 64rpx;
+	padding: 0 24rpx;
+	font-size: 24rpx;
+	min-width: 0;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+/* 大尺寸按钮 */
+.gm-btn-lg {
+	height: 96rpx;
+	line-height: 96rpx;
+	padding: 0 56rpx;
+	font-size: 30rpx;
+}
+
+/* 全宽按钮 */
+.gm-btn-block {
+	width: 100%;
+	padding: 0 $space-md;
+}
+
+/* ── Google Maps Chip（筛选标签）── */
+.gm-chip {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 72rpx;
+	padding: 0 28rpx;
+	font-size: 26rpx;
+	font-weight: 500;
+	color: $text-main;
+	background-color: #FFFFFF;
+	border: 1.5rpx solid #E8EAED;
+	border-radius: 100rpx;
+	transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+	box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.05);
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.gm-chip:hover {
+	background-color: #F8F9FA;
+	border-color: #D3D3D7;
+	box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.08);
+}
+
+.gm-chip:active {
+	background-color: #F1F3F4;
+	transform: scale(0.98);
+}
+
+.gm-chip-selected {
+	color: #FFFFFF;
+	background-color: $brand;
+	border-color: $brand;
+	font-weight: 600;
+	box-shadow: 0 3rpx 12rpx rgba(0, 123, 139, 0.12);
+}
+
+.gm-chip-selected:hover {
+	background-color: #007B8B;
+	border-color: #007B8B;
+	box-shadow: 0 4rpx 16rpx rgba(0, 123, 139, 0.16);
+}
+
+.gm-chip-selected:active {
+	background-color: #006478;
+	border-color: #006478;
+	transform: scale(0.98);
+	box-shadow: 0 5rpx 18rpx rgba(0, 123, 139, 0.18);
+}
+
+/* 地图页chip样式（更紧凑） */
+.gm-chip-map {
+	height: 72rpx;
+	line-height: 72rpx;
+	padding: 0 24rpx;
+	font-size: 24rpx;
+	background-color: #FFFFFF;
+	border: 1.5rpx solid #E8EAED;
+	box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.08);
+	border-radius: 100rpx;
+	display: inline-flex;
+	align-items: center;
+	gap: 8rpx;
+	white-space: nowrap;
+	transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gm-chip-map:active {
+	background-color: #F1F3F4;
+	transform: scale(0.96);
+	box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.12);
+}
+
+.gm-chip-map.gm-chip-selected {
+	color: #FFFFFF;
+	background-color: #1A73E8;
+	border-color: #1A73E8;
+	box-shadow: 0 4rpx 14rpx rgba(26, 115, 232, 0.3);
+}
+
+.gm-chip-map.gm-chip-selected:active {
+	background-color: #1565C0;
+	border-color: #1565C0;
+	transform: scale(0.96);
+	box-shadow: 0 6rpx 20rpx rgba(26, 115, 232, 0.35);
+}
+
+.gm-chip-icon {
+	margin-right: 4rpx;
+	font-size: 24rpx;
+	line-height: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+
+/* ── Google Maps 输入框 ── */
+.gm-input {
+	height: 96rpx;
+	padding: 0 $space-md;
+	font-size: 28rpx;
+	color: $text-main;
+	background-color: $bg-card;
+	border: 1.5rpx solid #E8EAED;
+	border-radius: $radius-sm;
+	transition: all $duration-fast cubic-bezier(0.4, 0, 0.2, 1);
+	box-sizing: border-box;
+}
+
+.gm-input:hover {
+	border-color: #DADCE0;
+	background-color: #FAFBFC;
+}
+
+.gm-input:focus {
+	border-color: $brand;
+	background-color: #FFFFFF;
+	box-shadow: 0 0 0 3rpx rgba(26, 115, 232, 0.1);
+}
+
+.gm-input::placeholder {
+	color: $text-placeholder;
+}
+
+.gm-textarea {
+	min-height: 200rpx;
+	padding: 20rpx $space-md;
+	font-size: 28rpx;
+	color: $text-main;
+	background-color: $bg-card;
+	border: 1.5rpx solid #E8EAED;
+	border-radius: $radius-sm;
+	line-height: 1.5;
+	transition: all $duration-fast cubic-bezier(0.4, 0, 0.2, 1);
+	box-sizing: border-box;
+	font-family: inherit;
+}
+
+.gm-textarea:hover {
+	border-color: #DADCE0;
+	background-color: #FAFBFC;
+}
+
+.gm-textarea:focus {
+	border-color: $brand;
+	background-color: #FFFFFF;
+	box-shadow: 0 0 0 3rpx rgba(26, 115, 232, 0.1);
+}
+
+.gm-textarea::placeholder {
+	color: $text-placeholder;
+}
+
+/* ── Google Maps 搜索框 ── */
+.gm-search {
+	display: flex;
+	align-items: center;
+	height: 96rpx;
+	padding: 0 $space-md;
+	background-color: $bg-card;
+	border-radius: $radius-pill;
+	box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+	transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+	border: none;
+}
+
+.gm-search:focus-within {
+	box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.15);
+}
+
+.gm-search-icon {
+	width: 48rpx;
+	height: 48rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: 16rpx;
+	font-size: 32rpx;
+	color: $text-secondary;
+	flex-shrink: 0;
+}
+
+.gm-search-input {
+	flex: 1;
+	height: 96rpx;
+	font-size: 28rpx;
+	color: $text-main;
+	background-color: transparent;
+	border: none;
+	outline: none;
+}
+
+.gm-search-input::placeholder {
+	color: $text-placeholder;
+}
+
+/* ── Google Maps 浮动操作按钮 FAB ── */
+.gm-fab {
+	width: 112rpx;
+	height: 112rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	position: fixed;
+	background-color: $brand;
+	color: $text-inverse;
+	border-radius: 50%;
+	box-shadow: 0 8rpx 24rpx rgba(26, 115, 232, 0.2);
+	transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gm-fab:active {
+	transform: scale(0.92);
+	box-shadow: 0 12rpx 32rpx rgba(26, 115, 232, 0.3);
+}
+
+.gm-fab-icon {
+	font-size: 48rpx;
+}
+
+/* ── Google Maps 底部面板 ── */
+.gm-bottom-sheet {
+	background-color: $bg-card;
+	border-radius: 28rpx 28rpx 0 0;
+	box-shadow: 0 -4rpx 16rpx rgba(60, 64, 67, 0.15);
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	transition: height 150ms cubic-bezier(0.4, 0, 0.2, 1);
+	will-change: height;
+	position: relative;
+	z-index: 100;
+	pointer-events: auto;
+	touch-action: manipulation;
+}
+
+.gm-bottom-sheet-handle {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	padding: 12rpx 0 8rpx;
+	background-color: $bg-card;
+	cursor: grab;
+	user-select: none;
+	-webkit-user-select: none;
+	transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
+	pointer-events: auto;
+	touch-action: none;
+	z-index: 101;
+	flex-shrink: 0;
+}
+
+.gm-bottom-sheet-handle:active {
+	cursor: grabbing;
+	background-color: #F1F3F4;
+}
+
+.gm-bottom-sheet-bar {
+	width: 64rpx;
+	height: 8rpx;
+	background-color: #D3D3D7;
+	border-radius: 4rpx;
+	transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
+	box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.08);
+	pointer-events: auto;
+}
+
+.gm-bottom-sheet-handle:active .gm-bottom-sheet-bar {
+	background-color: #9AA0A6;
+	box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.12);
+}
+
+/* ── Google Maps 头像 ── */
+.gm-avatar {
+	width: 64rpx;
+	height: 64rpx;
+	border-radius: 50%;
+	background-color: $bg-fill;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+}
+
+.gm-avatar-sm {
+	width: 48rpx;
+	height: 48rpx;
+}
+
+.gm-avatar-lg {
+	width: 88rpx;
+	height: 88rpx;
+}
+
+.gm-avatar-text {
+	font-size: 28rpx;
+	font-weight: 500;
+	color: $text-inverse;
+	background-color: $brand;
+	line-height: 64rpx;
+	text-align: center;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.gm-avatar-sm.gm-avatar-text {
+	font-size: 22rpx;
+	line-height: 48rpx;
+}
+
+.gm-avatar-lg.gm-avatar-text {
+	font-size: 36rpx;
+	line-height: 88rpx;
+}
+
+/* ── Google Maps 评分星星 ── */
+.gm-stars {
+	display: inline-flex;
+	align-items: center;
+	gap: 4rpx;
+}
+
+.gm-star {
+	font-size: 24rpx;
+	color: $border-strong;
+	line-height: 1;
+}
+
+.gm-star-filled {
+	color: $warning;
+}
+
+.gm-stars-sm {
+	font-size: 20rpx;
+}
+
+.gm-stars-sm .gm-star {
+	font-size: 20rpx;
+}
+
+.gm-stars-lg {
+	font-size: 32rpx;
+}
+
+.gm-stars-lg .gm-star {
+	font-size: 32rpx;
+}
+
+
+/* ── Google Maps 标签页 Tab Navigation ── */
+.gm-tabs {
+	display: flex;
+	align-items: center;
+	border-bottom: 2rpx solid #E8EAED;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+.gm-tab {
+	position: relative;
+	flex: 0 0 auto;
+	min-width: 120rpx;
+	padding: 16rpx 24rpx;
+	text-align: center;
+	font-size: 28rpx;
+	font-weight: 500;
+	color: $text-secondary;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+	border: none;
+	background: none;
+}
+
+.gm-tab:hover {
+	color: $text-main;
+	background-color: rgba(26, 115, 232, 0.04);
+}
+
+.gm-tab.gm-tab-active {
+	color: $brand;
+	font-weight: 600;
+}
+
+.gm-tab.gm-tab-active::after {
+	content: '';
+	position: absolute;
+	bottom: -2rpx;
+	left: 24rpx;
+	right: 24rpx;
+	height: 3rpx;
+	background-color: $brand;
+	border-radius: 2rpx 2rpx 0 0;
+}
+
+/* ── Google Maps 标签 ── */
+.gm-tag {
+	display: inline-block;
+	padding: 6rpx 16rpx;
+	font-size: 20rpx;
+	font-weight: 500;
+	border-radius: $radius-xs;
+	line-height: 1;
+}
+
+.gm-tag-primary {
+	color: $brand;
+	background-color: $brand-soft;
+}
+
+.gm-tag-success {
+	color: $success;
+	background-color: $success-soft;
+}
+
+.gm-tag-warning {
+	color: $warning;
+	background-color: $warning-soft;
+}
+
+.gm-tag-danger {
+	color: $danger;
+	background-color: $danger-soft;
+}
+
+.gm-tag-teal {
+	color: $brand;
+	background-color: $brand-soft;
+}
+
+/* ── Google Maps 分割线 ── */
+.gm-divider {
+	height: 1rpx;
+	background-color: $border-color;
+	margin: $space-md 0;
+}
+
+.gm-divider-strong {
+	background-color: $border-strong;
+}
+
+/* ── Google Maps 空状态 ── */
+.gm-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 80rpx $space-md;
+	text-align: center;
+}
+
+.gm-empty-icon {
+	font-size: 88rpx;
+	line-height: 1;
+	opacity: 0.3;
+	margin-bottom: 24rpx;
+}
+
+.gm-empty-title {
+	font-size: 30rpx;
+	font-weight: 500;
+	color: $text-secondary;
+	margin-bottom: 12rpx;
+}
+
+.gm-empty-subtitle {
+	font-size: 24rpx;
+	color: $text-placeholder;
+	line-height: 1.5;
+}
+
+/* ── Google Maps 加载状态 ── */
+.gm-loading {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 60rpx 0;
+}
+
+.gm-loading-spinner {
+	width: 60rpx;
+	height: 60rpx;
+	border: 4rpx solid $border-color;
+	border-top-color: $brand;
+	border-radius: 50%;
+	animation: gm-spin 0.8s linear infinite;
+}
+
+@keyframes gm-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.gm-loading-text {
+	margin-top: 20rpx;
+	font-size: 24rpx;
+	color: $text-secondary;
+}
+
+/* ── Google Maps 遮罩层 ── */
+.gm-overlay {
+	position: fixed;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	background-color: rgba(32, 33, 36, 0.56);
+	display: flex;
+	align-items: flex-end;
+	z-index: 999;
+	animation: gm-fade-in 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	-webkit-backdrop-filter: blur(1px);
+	backdrop-filter: blur(1px);
+}
+
+@keyframes gm-fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.gm-overlay-center {
+	align-items: center;
+	justify-content: center;
+}
+
+/* ── Google Maps 对话框 ── */
+.gm-dialog {
+	width: 620rpx;
+	background-color: $bg-card;
+	border-radius: $radius-xl;
+	padding: $space-lg;
+	box-sizing: border-box;
+	box-shadow: 0 12rpx 32rpx rgba(60, 64, 67, 0.15);
+	animation: gm-slide-up 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes gm-slide-up {
+	from {
+		transform: translateY(40rpx);
+		opacity: 0;
+	}
+	to {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+
+.gm-dialog-title {
+	font-size: 32rpx;
+	font-weight: 500;
+	color: $text-main;
+	text-align: center;
+	margin-bottom: $space-md;
+	letter-spacing: 0;
+}
+
+.gm-dialog-content {
+	font-size: 26rpx;
+	color: $text-regular;
+	line-height: 1.6;
+	margin-bottom: $space-lg;
+}
+
+.gm-dialog-actions {
+	display: flex;
+	gap: 16rpx;
+}
+
+/* ── Google Maps 提示框 ── */
+.gm-toast {
+	position: fixed;
+	left: 50%;
+	bottom: 160rpx;
+	transform: translateX(-50%);
+	padding: 20rpx 32rpx;
+	background-color: rgba(32, 33, 36, 0.9);
+	color: $text-inverse;
+	font-size: 26rpx;
+	border-radius: $radius-sm;
+	z-index: 9999;
+	animation: gm-toast-in 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes gm-toast-in {
+	from {
+		opacity: 0;
+		transform: translateX(-50%) translateY(20rpx);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(-50%) translateY(0);
+	}
+}
+
+/* ── Google Maps 地点列表卡片 ── */
+.gm-place-list {
+	padding: 0;
+}
+
+.gm-place-item {
+	padding: 16rpx 16rpx;
+	border-bottom: 1rpx solid #E8EAED;
+	transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
+	cursor: pointer;
+}
+
+.gm-place-item:active {
+	background-color: #F8F9FA;
+}
+
+/* 地点名称 */
+.gm-place-name {
+	display: block;
+	font-size: 32rpx;
+	font-weight: 600;
+	color: #202124;
+	line-height: 1.4;
+	margin-bottom: 6rpx;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* 地点信息行：评分/无评价 · 分类 · 距离 */
+.gm-place-info-row {
+	display: flex;
+	align-items: center;
+	gap: 2rpx;
+	margin-bottom: 4rpx;
+	font-size: 26rpx;
+	line-height: 1.3;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gm-place-score {
+	font-size: 26rpx;
+	font-weight: 600;
+	color: #FBBC04;
+	line-height: 1;
+	flex-shrink: 0;
+}
+
+.gm-place-dim {
+	font-size: 26rpx;
+	color: #80868B;
+	line-height: 1.3;
+	flex-shrink: 0;
+}
+
+/* 地址显示 */
+.gm-place-address {
+	display: block;
+	font-size: 26rpx;
+	color: #5F6368;
+	line-height: 1.4;
+	margin-bottom: 10rpx;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* 操作按钮容器 */
+.gm-place-actions {
+	display: flex;
+	gap: 8rpx;
+	flex-wrap: wrap;
+}
+
+/* Google Maps 风格的操作按钮 */
+.gm-action-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4rpx;
+	height: 64rpx;
+	padding: 0 16rpx;
+	font-size: 24rpx;
+	font-weight: 500;
+	color: #007B8B;
+	background-color: #D3F7FF;
+	border: none;
+	border-radius: 100rpx;
+	transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+	cursor: pointer;
+	flex-shrink: 0;
+	white-space: nowrap;
+	box-sizing: border-box;
+}
+
+.gm-action-btn:active {
+	background-color: #A8EEFF;
+	box-shadow: 0 2rpx 8rpx rgba(0, 123, 139, 0.1);
+	transform: scale(0.98);
+}
+
+.gm-action-icon {
+	font-size: 28rpx;
+	line-height: 1;
+	flex-shrink: 0;
+}
+
+/* Google Maps 地点列表卡片结束 ── */
+.gm-flex {
+	display: flex;
+}
+
+.gm-flex-column {
+	flex-direction: column;
+}
+
+.gm-flex-center {
+	align-items: center;
+	justify-content: center;
+}
+
+.gm-flex-between {
+	justify-content: space-between;
+}
+
+.gm-flex-1 {
+	flex: 1;
+}
+
+.gm-text-primary {
+	color: $text-main;
+}
+
+.gm-text-secondary {
+	color: $text-secondary;
+}
+
+.gm-text-tertiary {
+	color: $text-placeholder;
+}
+
+.gm-text-brand {
+	color: $brand;
+}
+
+.gm-text-danger {
+	color: $danger;
+}
+
+.gm-text-center {
+	text-align: center;
+}
+
+.gm-text-ellipsis {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gm-font-sm {
+	font-size: 24rpx;
+}
+
+.gm-font-md {
+	font-size: 28rpx;
+}
+
+.gm-font-lg {
+	font-size: 32rpx;
+}
+
+.gm-font-bold {
+	font-weight: 600;
+}
+
+.gm-mt-xs { margin-top: 8rpx; }
+.gm-mt-sm { margin-top: 16rpx; }
+.gm-mt-md { margin-top: 24rpx; }
+.gm-mt-lg { margin-top: 32rpx; }
+
+.gm-mb-xs { margin-bottom: 8rpx; }
+.gm-mb-sm { margin-bottom: 16rpx; }
+.gm-mb-md { margin-bottom: 24rpx; }
+.gm-mb-lg { margin-bottom: 32rpx; }
+
+.gm-ml-xs { margin-left: 8rpx; }
+.gm-ml-sm { margin-left: 16rpx; }
+.gm-ml-md { margin-left: 24rpx; }
+.gm-ml-lg { margin-left: 32rpx; }
+
+.gm-mr-xs { margin-right: 8rpx; }
+.gm-mr-sm { margin-right: 16rpx; }
+.gm-mr-md { margin-right: 24rpx; }
+.gm-mr-lg { margin-right: 32rpx; }
+
+.gm-p-xs { padding: 8rpx; }
+.gm-p-sm { padding: 16rpx; }
+.gm-p-md { padding: 24rpx; }
+.gm-p-lg { padding: 32rpx; }
+
+.gm-px-xs { padding-left: 8rpx; padding-right: 8rpx; }
+.gm-px-sm { padding-left: 16rpx; padding-right: 16rpx; }
+.gm-px-md { padding-left: 24rpx; padding-right: 24rpx; }
+.gm-px-lg { padding-left: 32rpx; padding-right: 32rpx; }
+
+.gm-py-xs { padding-top: 8rpx; padding-bottom: 8rpx; }
+.gm-py-sm { padding-top: 16rpx; padding-bottom: 16rpx; }
+.gm-py-md { padding-top: 24rpx; padding-bottom: 24rpx; }
+.gm-py-lg { padding-top: 32rpx; padding-bottom: 32rpx; }
+
+.gm-pb-md { padding-bottom: 24rpx; }
+
+/* ── 响应式隐藏/显示 ── */
+.gm-hidden {
+	display: none !important;
+}
+
+.gm-visible {
+	display: block !important;
+}
+
+/* ── Icon Classes 使用符号字符 ── */
+.material-icons {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: inherit;
+	line-height: 1;
+	font-style: normal;
+}
+
+/* Material Icons 尺寸变量 */
+.material-icons-sm {
+	font-size: 24rpx;
+	width: 24rpx;
+	height: 24rpx;
+}
+
+.material-icons-md {
+	font-size: 28rpx;
+	width: 28rpx;
+	height: 28rpx;
+}
+
+.material-icons-lg {
+	font-size: 32rpx;
+	width: 32rpx;
+	height: 32rpx;
+}
+
+.material-icons-xl {
+	font-size: 36rpx;
+	width: 36rpx;
+	height: 36rpx;
+}
+
+.material-icons-2xl {
+	font-size: 48rpx;
+	width: 48rpx;
+	height: 48rpx;
+}
+
+.material-icons-3xl {
+	font-size: 56rpx;
+	width: 56rpx;
+	height: 56rpx;
+}
+
+/* Icon 颜色主题 */
+.material-icons-primary {
+	color: $text-main;
+}
+
+.material-icons-secondary {
+	color: $text-secondary;
+}
+
+.material-icons-teal {
+	color: $brand;
+}
+
+.material-icons-teal-light {
+	color: $brand-soft;
+}
+
+.material-icons-warning {
+	color: $warning;
+}
+
+.material-icons-white {
+	color: $text-inverse;
+}

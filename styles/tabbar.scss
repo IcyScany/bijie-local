@@ -1,0 +1,166 @@
+/* ================================
+ * Tabbar 自定义样式
+ * Google Material Design 风格
+ * ================================ */
+
+/* 底部标签栏容器 */
+.uni-tabbar {
+	background-color: #F8F9FA;
+	border-top: none;
+	box-shadow: 0 -2rpx 8rpx rgba(0, 0, 0, 0.08);
+	padding: 0;
+	height: 120rpx;
+	display: flex;
+	align-items: center;
+	justify-content: space-around;
+}
+
+/* 单个标签项 */
+.uni-tabbar__item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	flex: 1;
+	height: 120rpx;
+	position: relative;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	color: #80868B;
+	text-decoration: none;
+}
+
+/* 标签项悬停状态 */
+.uni-tabbar__item:active {
+	background-color: rgba(0, 123, 139, 0.04);
+	transform: scale(0.98);
+}
+
+/* 标签项选中状态 */
+.uni-tabbar__item.uni-tabbar__item--active {
+	color: #007B8B;
+	font-weight: 500;
+}
+
+/* 标签图标 */
+.uni-tabbar__item-icon {
+	width: 48rpx;
+	height: 48rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-bottom: 8rpx;
+	font-size: 0;
+	position: relative;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	opacity: 1;
+}
+
+/* 标签文字 */
+.uni-tabbar__item-text {
+	font-size: 22rpx;
+	line-height: 1;
+	color: inherit;
+	text-align: center;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 中间的"贡献"按钮特殊样式 */
+.uni-tabbar__item:nth-child(3) {
+	transform: translateY(-16rpx);
+}
+
+.uni-tabbar__item:nth-child(3) .uni-tabbar__item-icon {
+	width: 88rpx;
+	height: 88rpx;
+	background-color: #D3F7FF;
+	border-radius: 50%;
+	box-shadow: 0 4rpx 12rpx rgba(0, 123, 139, 0.2);
+	margin-bottom: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.uni-tabbar__item:nth-child(3) .uni-tabbar__item-icon image {
+	width: 48rpx;
+	height: 48rpx;
+	filter: brightness(0.2) hue-rotate(210deg) saturate(1.3);
+}
+
+.uni-tabbar__item:nth-child(3) .uni-tabbar__item-text {
+	margin-top: 4rpx;
+	font-weight: 600;
+	color: #007B8B;
+}
+
+.uni-tabbar__item:nth-child(3):active {
+	transform: translateY(-16rpx) scale(0.95);
+}
+
+.uni-tabbar__item:nth-child(3):active .uni-tabbar__item-icon {
+	box-shadow: 0 6rpx 16rpx rgba(0, 123, 139, 0.3);
+	background-color: #A8EEFF;
+}
+
+/* 其他标签项 - 正常高度 */
+.uni-tabbar__item:nth-child(1),
+.uni-tabbar__item:nth-child(2),
+.uni-tabbar__item:nth-child(4) {
+	transform: translateY(0);
+}
+
+/* 图标图片 */
+.uni-tabbar__item-icon image {
+	width: 48rpx;
+	height: 48rpx;
+	display: block;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	filter: brightness(0.3);
+}
+
+/* 选中状态的图标 */
+.uni-tabbar__item--active .uni-tabbar__item-icon image {
+	filter: brightness(0.2) hue-rotate(210deg) saturate(1.3);
+}
+
+/* Badge 徽章（如果有）*/
+.uni-tabbar__badge {
+	position: absolute;
+	top: 8rpx;
+	right: 8rpx;
+	width: 32rpx;
+	height: 32rpx;
+	background-color: #E94335;
+	color: white;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 18rpx;
+	font-weight: bold;
+	box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.2);
+}
+
+/* ── 深色模式适配 ── */
+@media (prefers-color-scheme: dark) {
+	.uni-tabbar {
+		background-color: #1F1F1F;
+		box-shadow: 0 -2rpx 8rpx rgba(0, 0, 0, 0.3);
+	}
+
+	.uni-tabbar__item {
+		color: #B3B3B3;
+	}
+
+	.uni-tabbar__item.uni-tabbar__item--active {
+		color: #4FC3F7;
+	}
+
+	.uni-tabbar__item:nth-child(3) .uni-tabbar__item-icon {
+		background-color: rgba(79, 195, 247, 0.2);
+	}
+
+	.uni-tabbar__item:nth-child(3) .uni-tabbar__item-text {
+		color: #4FC3F7;
+	}
+}

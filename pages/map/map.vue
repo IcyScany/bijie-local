@@ -1,5 +1,5 @@
-<template>
-	<view class="page">
+﻿<template>
+	<view class="gm-page">
 		<map
 			id="localMap"
 			class="map"
@@ -11,213 +11,270 @@
 			@markertap="onMarkerTap"
 		></map>
 
-		<view class="panel">
-			<view class="panel-top">
-				<view class="panel-handle"></view>
+		<!-- 顶部搜索栏和分类 -->
+		<view style="position: absolute; top: 0; left: 0; right: 0; z-index: 10; padding: 16rpx;">
+			<!-- 搜索框 -->
+			<view class="gm-search" style="margin-bottom: 12rpx; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.15);">
+				<app-icon icon="search" size="md" style="margin-right: 12rpx;" />
+				<input class="gm-search-input" placeholder="在此处搜索" value="餐馆" />
+				<app-icon icon="photoCamera" size="sm" />
 			</view>
 
-			<scroll-view class="filter-scroll" scroll-x :show-scrollbar="false">
-				<view class="filter">
+			<!-- 分类过滤 -->
+			<scroll-view scroll-x :show-scrollbar="false" style="white-space: nowrap;">
+				<view class="gm-flex" style="gap: 8rpx; padding-right: 16rpx;">
 					<view
 						v-for="item in categories"
 						:key="item.value"
-						class="filter-item"
-						:class="{ active: category === item.value }"
+						class="gm-chip gm-chip-map"
+						:class="{ 'gm-chip-selected': category === item.value }"
 						@click="switchCategory(item.value)"
 					>
-						<text class="filter-emoji" v-if="item.emoji">{{ item.emoji }}</text>
+						<app-icon 
+							v-if="item.icon" 
+							:icon="item.icon" 
+							size="sm"
+							:color="category === item.value ? 'inherit' : 'primary'"
+							:custom-style="category === item.value ? { opacity: 1, filter: 'brightness(2)' } : {}"
+						/>
 						{{ item.label }}
 					</view>
 				</view>
 			</scroll-view>
+		</view>
 
-			<view class="location-bar">
-				<view class="location-left">
-					<view class="location-dot"></view>
-					<text class="location-name">{{ centerName }}</text>
-				</view>
-				<view class="location-tip">
-					<text class="location-count">{{ filteredSpots.length }}</text>
-					<text class="location-unit"> 个地点</text>
-				</view>
-			</view>
-
-			<AppSkeleton v-if="loading" :count="5" />
-			<view v-else-if="!filteredSpots.length" class="empty">
-				<view class="empty-icon">📭</view>
-				<text class="empty-text">暂无地点</text>
-				<text class="empty-sub">请到地点管理添加</text>
-			</view>
-			<scroll-view v-else class="list" scroll-y :lower-threshold="80" @scrolltolower="loadMore">
-				<view
-					v-for="(spot, index) in filteredSpots"
-					:key="spot._id"
-					class="spot"
-					@click="focusSpot(index)"
+		<!-- 底部列表面板 - 固定定位容器 -->
+		<view 
+			class="gm-bottom-sheet-wrapper" 
+			:style="{ height: bottomSheetHeight + 'vh' }"
+		>
+			<view class="gm-bottom-sheet">
+				<!-- 可拖动的顶部把手 -->
+				<view 
+					class="gm-bottom-sheet-handle"
+					@touchstart="onDragStart"
+					@touchmove="onDragMove"
+					@touchend="onDragEnd"
 				>
-					<image
-						v-if="thumbUrl(spot)"
-						class="spot-thumb"
-						:src="thumbUrl(spot)"
-						mode="aspectFill"
-					></image>
-					<view v-else class="spot-icon" :style="{ backgroundColor: typeBg(spot.type) }">
-						<text class="spot-emoji">{{ typeEmoji(spot.type) }}</text>
-					</view>
-
-					<view class="spot-info">
-						<view class="spot-head">
-							<text class="spot-name">{{ spot.name }}</text>
-							<view class="spot-tag" :style="{ color: typeColor(spot.type), backgroundColor: typeBg(spot.type) }">{{ typeText(spot.type) }}</view>
-						</view>
-						<text class="spot-desc">{{ spot.address || spot.remark || '暂无描述' }}</text>
-						<view v-if="ratingOf(spot).count" class="spot-rating">
-							<view class="stars small">
-								<text v-for="n in 5" :key="n" class="star" :class="{ on: n <= Math.round(ratingOf(spot).avg) }">★</text>
-							</view>
-							<text class="spot-rating-text">{{ ratingOf(spot).avg }}</text>
-						</view>
-					</view>
-
-					<view class="spot-arrow">
-						<text class="arrow-icon-text">›</text>
-					</view>
+					<view class="gm-bottom-sheet-bar"></view>
 				</view>
 
-				<view class="list-footer">
-					<AppLoading v-if="loadingMore" compact text="加载中..." />
-					<text v-else-if="!hasMore" class="list-footer-text">没有更多了</text>
+			<AppSkeleton v-if="loading" :count="3" />
+			<view v-else-if="!filteredSpots.length" class="gm-empty" style="padding-bottom: 60rpx;">
+				<text style="font-size: 56rpx; opacity: 0.3; margin-bottom: 24rpx;">📭</text>
+				<text class="gm-empty-title">暂无地点</text>
+				<text class="gm-empty-subtitle">请到地点管理添加</text>
+			</view>
+			<scroll-view v-else style="flex: 1; height: 0; min-height: 0;" scroll-y :lower-threshold="80" @scrolltolower="loadMore">
+				<view class="gm-place-list">
+					<view
+						v-for="(spot, index) in filteredSpots"
+						:key="spot._id"
+						class="gm-place-item-card"
+						@click="focusSpot(index)"
+					>
+						<!-- 左侧：信息区 -->
+						<view class="gm-place-card-content">
+							<!-- 地点名称 -->
+							<text class="gm-place-name">{{ spot.name }}</text>
+
+							<!-- 地点信息：无评价/评分 · 分类 · 距离 -->
+							<view class="gm-place-info-row" style="margin-bottom: 8rpx;">
+								<template v-if="ratingOf(spot).count">
+									<text class="gm-place-dim">{{ ratingOf(spot).avg }}★</text>
+									<text class="gm-place-dim" style="margin: 0 4rpx;">·</text>
+								</template>
+								<text v-else class="gm-place-dim">无评价</text>
+								<text class="gm-place-dim" style="margin: 0 4rpx;">·</text>
+								<text class="gm-place-dim">{{ typeText(spot.type) }}</text>
+								<text class="gm-place-dim" style="margin: 0 4rpx;">·</text>
+								<text class="gm-place-dim">140米</text>
+							</view>
+
+							<!-- 地址 -->
+							<text class="gm-place-address" v-if="spot.address">{{ spot.address }}</text>
+						</view>
+
+						<!-- 右侧：图片区 -->
+						<view class="gm-place-card-image">
+							<image 
+								:src="thumbUrl(spot) || '/static/img/default.png'"
+								mode="aspectFill"
+								style="width: 100%; height: 100%; border-radius: 12rpx;"
+							></image>
+						</view>
+					</view>
+
+					<view class="gm-text-center gm-py-sm">
+						<AppLoading v-if="loadingMore" compact text="加载中..." />
+						<text v-else-if="!hasMore" class="gm-font-sm gm-text-tertiary">没有更多了</text>
+					</view>
 				</view>
 			</scroll-view>
-		</view>
-
-		<view v-if="detailVisible" class="mask" @click="closeDetail">
-			<view class="detail" @click.stop>
-				<view class="detail-handle-wrap">
-					<view class="panel-handle"></view>
-				</view>
-
-				<scroll-view class="detail-scroll" scroll-y :show-scrollbar="false">
-					<view class="detail-inner">
-						<scroll-view v-if="currentImages.length" class="detail-images" scroll-x :show-scrollbar="false">
-							<image
-								v-for="(img, i) in currentImages"
-								:key="i"
-								class="detail-image"
-								:src="img"
-								mode="aspectFill"
-								@click="previewImage(i)"
-							></image>
-							<view class="detail-image-add" @click="chooseSpotImages">
-								<text class="detail-add-icon">＋</text>
-								<text class="detail-add-text">上传照片</text>
-							</view>
-						</scroll-view>
-						<view v-else class="detail-image-empty" @click="chooseSpotImages">
-							<text class="detail-empty-icon">🖼️</text>
-							<text class="detail-empty-title">暂无图片</text>
-							<text class="detail-empty-sub">上传照片，帮助更多人了解这里</text>
-						</view>
-
-						<view class="detail-head">
-							<view class="detail-icon" :style="{ backgroundColor: typeBg(currentSpot.type) }">
-								<text class="detail-icon-text">{{ typeEmoji(currentSpot.type) }}</text>
-							</view>
-							<view class="detail-title-wrap">
-								<text class="detail-name">{{ currentSpot.name }}</text>
-								<view class="detail-tag" :style="{ color: typeColor(currentSpot.type), backgroundColor: typeBg(currentSpot.type) }">{{ typeText(currentSpot.type) }}</view>
-							</view>
-						</view>
-
-						<view class="detail-rating">
-							<view class="stars small">
-								<text v-for="n in 5" :key="n" class="star" :class="{ on: n <= Math.round(currentRating.avg) }">★</text>
-							</view>
-							<text class="detail-rating-text">{{ currentRating.count ? currentRating.avg + ' 分 · ' + currentRating.count + ' 条评价' : '暂无评价' }}</text>
-						</view>
-
-						<view class="detail-body">
-							<view v-if="currentSpot.address" class="detail-row">
-								<text class="detail-row-icon">📍</text>
-								<text class="detail-row-text">{{ currentSpot.address }}</text>
-							</view>
-							<view v-if="currentSpot.remark" class="detail-row">
-								<text class="detail-row-icon">📝</text>
-								<text class="detail-row-text">{{ currentSpot.remark }}</text>
-							</view>
-							<view v-if="currentSpot.contributor_name" class="detail-row">
-								<text class="detail-row-icon">👤</text>
-								<text class="detail-row-text">{{ currentSpot.contributor_name }} 贡献</text>
-							</view>
-						</view>
-
-						<view class="detail-comments">
-							<view class="dc-head">
-								<text class="dc-title">评价</text>
-								<text class="dc-count">{{ commentsTotal }} 条</text>
-							</view>
-
-							<view v-if="commentsLoading" class="dc-tip">加载中...</view>
-							<view v-else-if="!comments.length" class="dc-tip">还没有评价，来抢沙发</view>
-							<view v-else class="dc-list">
-								<view v-for="c in comments" :key="c._id" class="dc-item">
-									<image v-if="commentAvatar(c)" class="dc-avatar" :src="commentAvatar(c)" mode="aspectFill" />
-									<view v-else class="dc-avatar dc-avatar-text">{{ commentAvatarText(c.nickname) }}</view>
-									<view class="dc-body">
-										<view class="dc-item-head">
-											<text class="dc-name">{{ c.nickname || '匿名用户' }}</text>
-											<view class="stars small">
-												<text v-for="n in 5" :key="n" class="star" :class="{ on: n <= c.rating }">★</text>
-											</view>
-										</view>
-										<text class="dc-content">{{ c.content }}</text>
-									</view>
-								</view>
-							</view>
-
-							<button class="dc-write" @click="openComposer">写评价</button>
-						</view>
-					</view>
-				</scroll-view>
-
-				<view class="detail-actions">
-					<button class="detail-btn close" @click="closeDetail">关闭</button>
-					<button class="detail-btn feedback" @click="openFeedback">反馈</button>
-					<button class="detail-btn nav" :disabled="!hasCoord" @click="goHere">
-						<text class="nav-icon">🧭</text> 导航前往
-					</button>
-				</view>
 			</view>
 		</view>
 
-		<view v-if="composerVisible" class="mask" @click="closeComposer">
-			<view class="composer" @click.stop>
-				<text class="composer-title">评价「{{ currentSpot.name }}」</text>
-				<view class="rate-row">
+		<!-- 详情模态框 -->
+		<view v-if="detailVisible" class="gm-overlay" @click="closeDetail">
+			<view class="gm-bottom-sheet" style="width: 100%; max-height: 90vh; animation: gm-slide-up 0.25s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column;" @click.stop>
+				<!-- 拖动条 -->
+				<view class="gm-bottom-sheet-handle">
+					<view class="gm-bottom-sheet-bar"></view>
+				</view>
+
+				<!-- 滚动内容区 -->
+				<scroll-view style="flex: 1; overflow-y: auto;" scroll-y :show-scrollbar="false">
+					<!-- 图片轮播区 -->
+					<scroll-view v-if="currentImages.length" style="width: 100%; height: 300rpx; white-space: nowrap;" scroll-x :show-scrollbar="false">
+						<image
+							v-for="(img, i) in currentImages"
+							:key="i"
+							style="width: 100%; height: 300rpx; display: inline-block; background-color: #F1F3F4;"
+							:src="img"
+							mode="aspectFill"
+							@click="previewImage(i)"
+						></image>
+					</scroll-view>
+					<view v-else style="width: 100%; height: 300rpx; background-color: #F1F3F4; display: flex; align-items: center; justify-content: center;">
+						<text style="font-size: 80rpx; opacity: 0.3; color: #202124;">🖼️</text>
+					</view>
+
+					<!-- 内容区 -->
+					<view style="padding: 24rpx 24rpx;">
+						<!-- 头部：名称 + 关闭按钮 -->
+						<view class="gm-flex" style="justify-content: space-between; align-items: flex-start; margin-bottom: 16rpx;">
+							<view style="flex: 1; overflow: hidden;">
+								<text style="font-size: 36rpx; font-weight: 700; color: #202124; line-height: 1.3; display: block; word-break: break-all;">{{ currentSpot.name }}</text>
+								<!-- 无评价提示 -->
+								<text v-if="!currentRating.count" class="gm-font-sm gm-text-secondary" style="display: block; margin-top: 8rpx;">暂无评价</text>
+								<!-- 有评价的显示 -->
+								<view v-else class="gm-flex gm-mt-sm" style="align-items: center;">
+									<view class="gm-stars gm-stars-sm">
+										<text v-for="n in 5" :key="n" class="gm-star" :class="{ 'gm-star-filled': n <= Math.round(currentRating.avg) }">★</text>
+									</view>
+									<text class="gm-font-md gm-font-bold gm-ml-xs" style="color: #FBBC04;">{{ currentRating.avg }}</text>
+									<text class="gm-font-sm gm-text-secondary gm-ml-xs">({{ currentRating.count }})</text>
+								</view>
+							</view>
+							<button class="gm-btn gm-btn-text" style="height: 64rpx; line-height: 64rpx; padding: 0 16rpx; font-size: 36rpx; margin: -16rpx -16rpx 0 0;" @click="closeDetail">✕</button>
+						</view>
+
+						<!-- 分类标签 -->
+						<view class="gm-tag" :style="{ color: typeColor(currentSpot.type), backgroundColor: typeBg(currentSpot.type), fontSize: '22rpx', padding: '8rpx 16rpx', marginBottom: '24rpx' }">{{ typeText(currentSpot.type) }}</view>
+
+						<!-- 快速操作按钮 -->
+						<view class="gm-flex" style="gap: 12rpx; margin-bottom: 24rpx; flex-wrap: wrap;">
+							<button class="gm-btn gm-btn-filled" style="flex: 1; min-width: 150rpx; height: 72rpx; line-height: 72rpx; font-size: 26rpx; padding: 0 24rpx;" :disabled="!hasCoord" @click="goHere">
+								<app-icon icon="directions" size="sm" style="margin-right: 8rpx; vertical-align: -2rpx;" />路线
+							</button>
+							<button class="gm-btn gm-btn-tonal" style="flex: 1; min-width: 150rpx; height: 72rpx; line-height: 72rpx; font-size: 26rpx; padding: 0 24rpx;">
+								<app-icon icon="call" size="sm" style="margin-right: 8rpx; vertical-align: -2rpx;" />致电
+							</button>
+							<button class="gm-btn gm-btn-tonal" style="flex: 1; min-width: 150rpx; height: 72rpx; line-height: 72rpx; font-size: 26rpx; padding: 0 24rpx;">
+								<app-icon icon="nearMe" size="sm" style="margin-right: 8rpx; vertical-align: -2rpx;" />分享
+							</button>
+						</view>
+
+						<!-- 标签页 -->
+						<view class="gm-tabs" style="margin-bottom: 24rpx;">
+							<view class="gm-tab gm-tab-active">概览</view>
+							<view class="gm-tab">简介</view>
+						</view>
+
+						<!-- 信息行 -->
+						<view v-if="currentSpot.address" class="gm-flex" style="align-items: flex-start; margin-bottom: 20rpx;">
+							<app-icon icon="location" size="md" style="margin-right: 16rpx; flex-shrink: 0; margin-top: 2rpx;" />
+							<view style="flex: 1;">
+								<text class="gm-font-sm gm-text-secondary" style="display: block;">地址</text>
+								<text class="gm-font-md gm-text-primary" style="display: block; margin-top: 6rpx; line-height: 1.4; word-break: break-all;">{{ currentSpot.address }}</text>
+							</view>
+						</view>
+
+						<view v-if="currentSpot.remark" class="gm-flex" style="align-items: flex-start; margin-bottom: 20rpx;">
+							<app-icon icon="locationOn" size="md" style="margin-right: 16rpx; flex-shrink: 0; margin-top: 2rpx;" />
+							<view style="flex: 1;">
+								<text class="gm-font-sm gm-text-secondary" style="display: block;">备注</text>
+								<text class="gm-font-md gm-text-primary" style="display: block; margin-top: 6rpx; line-height: 1.4;">{{ currentSpot.remark }}</text>
+							</view>
+						</view>
+
+						<view v-if="currentSpot.contributor_name" class="gm-flex" style="align-items: center; margin-bottom: 20rpx; padding-bottom: 20rpx; border-bottom: 1rpx solid #E8EAED;">
+							<app-icon icon="photoCamera" size="md" style="margin-right: 16rpx; flex-shrink: 0;" />
+							<text class="gm-font-md gm-text-primary gm-flex-1">{{ currentSpot.contributor_name }} 贡献</text>
+							<text style="font-size: 24rpx; color: #9AA0A6;">›</text>
+						</view>
+
+						<!-- 评价区域 -->
+						<view style="margin-top: 24rpx;">
+							<text class="gm-font-lg gm-font-bold gm-text-primary" style="display: block; margin-bottom: 20rpx;">评价</text>
+
+							<!-- 无评价提示 -->
+							<view v-if="!commentsLoading && !comments.length" style="text-align: center; padding: 40rpx 0;">
+								<text class="gm-text-secondary" style="display: block; margin-bottom: 20rpx;">还没有评价，来抢沙发</text>
+								<button class="gm-btn gm-btn-outlined" style="width: 100%; height: 72rpx; line-height: 72rpx; font-size: 26rpx; border: 2rpx solid #1A73E8; color: #1A73E8; background-color: transparent;" @click="openComposer">写评价</button>
+							</view>
+
+							<!-- 加载状态 -->
+							<view v-else-if="commentsLoading" class="gm-text-secondary gm-py-md gm-font-sm">加载中...</view>
+
+							<!-- 评价列表 -->
+							<view v-else>
+								<view v-for="(c, idx) in comments" :key="c._id" style="padding-bottom: 20rpx; border-bottom: 1rpx solid #E8EAED;" :style="{ marginBottom: idx < comments.length - 1 ? '20rpx' : '20rpx' }">
+									<!-- 评论头部：头像 + 用户名 + 星级 -->
+									<view class="gm-flex" style="align-items: center; margin-bottom: 12rpx;">
+										<image v-if="commentAvatar(c)" class="gm-avatar gm-avatar-sm" :src="commentAvatar(c)" mode="aspectFill" style="margin-right: 12rpx;" />
+										<view v-else class="gm-avatar gm-avatar-sm gm-avatar-text" style="margin-right: 12rpx; font-size: 20rpx;">{{ commentAvatarText(c.nickname) }}</view>
+										<view style="flex: 1;">
+											<text class="gm-font-md gm-font-bold gm-text-primary">{{ c.nickname || '匿名用户' }}</text>
+										</view>
+										<view class="gm-stars gm-stars-sm">
+											<text v-for="n in 5" :key="n" class="gm-star" :class="{ 'gm-star-filled': n <= c.rating }">★</text>
+										</view>
+									</view>
+									<!-- 评论内容 -->
+									<text class="gm-font-sm gm-text-regular" style="display: block; line-height: 1.5; word-break: break-all;">{{ c.content }}</text>
+								</view>
+
+								<!-- 写评价按钮 -->
+								<button class="gm-btn gm-btn-outlined" style="width: 100%; height: 72rpx; line-height: 72rpx; font-size: 26rpx; border: 2rpx solid #1A73E8; color: #1A73E8; background-color: transparent; margin-top: 20rpx;" @click="openComposer">写评价</button>
+							</view>
+						</view>
+
+						<!-- 底部间距 -->
+						<view style="height: 40rpx;"></view>
+					</view>
+				</scroll-view>
+			</view>
+		</view>
+
+		<view v-if="composerVisible" class="gm-overlay gm-overlay-center" @click="closeComposer">
+			<view class="gm-dialog" @click.stop>
+				<text class="gm-dialog-title">评价「{{ currentSpot.name }}」</text>
+				<view class="gm-flex gm-flex-center gm-py-lg">
 					<text
 						v-for="n in 5"
 						:key="n"
-						class="rate-star"
-						:class="{ on: n <= commentRating }"
+						style="font-size: 56rpx; line-height: 1; margin: 0 6rpx; cursor: pointer;"
+						:style="{ color: n <= commentRating ? '#FBBC04' : '#DADCE0' }"
 						@click="commentRating = n"
 					>★</text>
-					<text class="rate-text">{{ ratingText(commentRating) }}</text>
+					<text class="gm-font-md gm-font-bold gm-ml-md" style="color: #FBBC04;">{{ ratingText(commentRating) }}</text>
 				</view>
-				<textarea class="composer-input" v-model="commentContent" placeholder="说说你的体验吧～" maxlength="500" />
-				<view class="composer-actions">
-					<button class="c-btn cancel" @click="closeComposer">取消</button>
-					<button class="c-btn submit" :disabled="submittingComment" @click="submitComment">{{ submittingComment ? '发布中...' : '发布' }}</button>
+				<textarea class="gm-textarea" v-model="commentContent" placeholder="说说你的体验吧～" maxlength="500" />
+				<view class="gm-flex gm-mt-lg" style="gap: 12rpx;">
+					<button class="gm-btn gm-btn-text gm-flex-1" style="font-size: 26rpx; padding: 0 16rpx; height: 80rpx; line-height: 80rpx;" @click="closeComposer">取消</button>
+					<button class="gm-btn gm-btn-filled gm-flex-1" style="font-size: 26rpx; padding: 0 16rpx; height: 80rpx; line-height: 80rpx;" :disabled="submittingComment" @click="submitComment">{{ submittingComment ? '发布中...' : '发布' }}</button>
 				</view>
 			</view>
 		</view>
 
-		<view v-if="feedbackVisible" class="mask" @click="closeFeedback">
-			<view class="composer" @click.stop>
-				<text class="composer-title">反馈问题</text>
-				<textarea class="composer-input" v-model="feedbackText" placeholder="如：摊位已搬迁到对面 / 信息有误…" maxlength="300" />
-				<view class="composer-actions">
-					<button class="c-btn cancel" @click="closeFeedback">取消</button>
-					<button class="c-btn submit" :disabled="submittingFeedback" @click="submitFeedback">{{ submittingFeedback ? '提交中...' : '提交反馈' }}</button>
+		<view v-if="feedbackVisible" class="gm-overlay gm-overlay-center" @click="closeFeedback">
+			<view class="gm-dialog" @click.stop>
+				<text class="gm-dialog-title">反馈问题</text>
+				<textarea class="gm-textarea gm-mt-md" v-model="feedbackText" placeholder="如：摊位已搬迁到对面 / 信息有误…" maxlength="300" />
+				<view class="gm-flex gm-mt-lg" style="gap: 12rpx;">
+					<button class="gm-btn gm-btn-text gm-flex-1" style="font-size: 26rpx; padding: 0 16rpx; height: 80rpx; line-height: 80rpx;" @click="closeFeedback">取消</button>
+					<button class="gm-btn gm-btn-filled gm-flex-1" style="font-size: 26rpx; padding: 0 16rpx; height: 80rpx; line-height: 80rpx;" :disabled="submittingFeedback" @click="submitFeedback">{{ submittingFeedback ? '提交中...' : '提交反馈' }}</button>
 				</view>
 			</view>
 		</view>
@@ -229,8 +286,10 @@
 	import { onShow } from '@dcloudio/uni-app'
 	import { ensureLogin, getUserInfo, getToken, isAuthError, relogin } from '@/utils/auth.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
+	import { getCategoryIcon, getActionIcon, getIcon } from '@/utils/icons.js'
 	import AppLoading from '@/components/AppLoading.vue'
 	import AppSkeleton from '@/components/AppSkeleton.vue'
+	import AppIcon from '@/components/AppIcon.vue'
 
 	const favoriteObj = uniCloud.importObject('favorite-spots', {
 		customUI: true
@@ -241,29 +300,25 @@
 	})
 
 	const categories = [{
-		label: '全部',
+		label: '设置住地',
 		value: 'all',
-		emoji: ''
+		icon: 'location'
 	}, {
-		label: '美食',
+		label: '餐馆',
 		value: 'food',
-		emoji: '🍜'
+		icon: 'restaurant'
 	}, {
-		label: '景点',
+		label: '酒店',
 		value: 'view',
-		emoji: '🌳'
+		icon: 'hotel'
 	}, {
-		label: '便民厕所',
+		label: '加油站',
 		value: 'toilet',
-		emoji: '🚻'
+		icon: 'gasStation'
 	}, {
 		label: '便民商店',
 		value: 'shop',
-		emoji: '🏪'
-	}, {
-		label: '其他',
-		value: 'other',
-		emoji: '📍'
+		icon: 'storefront'
 	}]
 
 	const category = ref('all')
@@ -302,6 +357,12 @@
 	const submittingFeedback = ref(false)
 
 	const uploadingImage = ref(false)
+
+	// 底部面板拖动功能
+	const bottomSheetHeight = ref(50)
+	const dragStartY = ref(0)
+	const dragStartHeight = ref(50)
+	const isDragging = ref(false)
 
 	const filteredSpots = computed(() => {
 		if (category.value === 'all') {
@@ -852,6 +913,62 @@
 		}
 	}
 
+	// 列表：导航到该地点
+	function navigateSpot(spot) {
+		const longitude = Number(spot.longitude)
+		const latitude = Number(spot.latitude)
+		if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
+			uni.showToast({
+				title: '该地点缺少坐标',
+				icon: 'none'
+			})
+			return
+		}
+		uni.openLocation({
+			longitude,
+			latitude,
+			name: spot.name,
+			address: spot.address || spot.remark || '',
+			scale: 18
+		})
+	}
+
+	// 列表：致电地点
+	function callSpot(spot) {
+		if (!spot.phone) {
+			uni.showToast({
+				title: '暂无电话号码',
+				icon: 'none'
+			})
+			return
+		}
+		uni.makePhoneCall({
+			phoneNumber: spot.phone
+		})
+	}
+
+	// 列表：分享（复制地点信息）
+	function shareSpot(spot) {
+		const text = spot.name + (spot.address ? '：' + spot.address : '')
+		uni.setClipboardData({
+			data: text,
+			success: () => {
+				uni.showToast({
+					title: '已复制地点信息',
+					icon: 'none'
+				})
+			}
+		})
+	}
+
+	// 列表：保存地点
+	function saveSpot(spot) {
+		uni.showToast({
+			title: '已保存',
+			icon: 'success'
+		})
+	}
+
 	// 调起系统地图导航到该地点
 	function goHere() {
 		const spot = currentSpot.value
@@ -872,764 +989,135 @@
 			scale: 18
 		})
 	}
+
+	// 底部面板拖动功能
+	function onDragStart(e) {
+		isDragging.value = true
+		dragStartY.value = e.touches[0].clientY
+		dragStartHeight.value = bottomSheetHeight.value
+		e.stopPropagation()
+	}
+
+	function onDragMove(e) {
+		if (!isDragging.value) return
+		
+		e.preventDefault()
+		e.stopPropagation()
+		
+		// 只在拖动把手时处理
+		const touch = e.touches[0]
+		const currentY = touch.clientY
+		const deltaY = dragStartY.value - currentY
+		
+		// 获取窗口高度用于计算比例
+		const windowInfo = uni.getWindowInfo()
+		const screenHeight = windowInfo.windowHeight
+		
+		// 转换像素差值为vh单位的变化
+		// screenHeight = 100vh，所以 1vh = screenHeight/100 像素
+		const deltaVh = (deltaY / screenHeight) * 100
+		
+		// 计算新高度
+		let newHeight = dragStartHeight.value + deltaVh
+		
+		// 限制范围：20vh - 90vh
+		newHeight = Math.max(20, Math.min(90, newHeight))
+		
+		bottomSheetHeight.value = newHeight
+	}
+
+	function onDragEnd(e) {
+		if (!isDragging.value) return
+		isDragging.value = false
+		
+		e.stopPropagation()
+		
+		// 吸附到标准高度 (30%, 50%, 70%)
+		const height = bottomSheetHeight.value
+		if (height < 35) {
+			bottomSheetHeight.value = 30
+		} else if (height < 60) {
+			bottomSheetHeight.value = 50
+		} else {
+			bottomSheetHeight.value = 70
+		}
+	}
 </script>
 
 <style lang="scss">
-	.page {
-		display: flex;
-		flex-direction: column;
-		height: 100vh;
-		overflow: hidden;
-		background-color: $bg-page;
-	}
-
 	.map {
 		width: 100%;
 		flex: 1;
+		pointer-events: auto;
+		z-index: 1;
 	}
 
-	/* ── 底部面板 ── */
-	.panel {
-		height: 54vh;
-		background-color: $bg-card;
-		border-radius: $radius-xl $radius-xl 0 0;
-		margin-top: -32rpx;
-		box-shadow: 0 -24rpx 56rpx rgba(29, 33, 41, 0.14);
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-	}
-
-	.panel-top {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 20rpx 0 8rpx;
-		flex-shrink: 0;
-	}
-
-	.panel-handle {
-		width: 72rpx;
-		height: 8rpx;
-		background-color: $border-strong;
-		border-radius: 4rpx;
-	}
-
-	/* ── 分类筛选 ── */
-	.filter-scroll {
-		width: 100%;
-		white-space: nowrap;
-		padding: 8rpx 0 20rpx;
-		flex-shrink: 0;
-	}
-
-	.filter {
-		display: inline-flex;
-		padding: 0 $space-md;
-	}
-
-	.filter-item {
-		display: inline-flex;
-		align-items: center;
-		flex-shrink: 0;
-		height: 72rpx;
-		padding: 0 28rpx;
-		margin-right: $space-sm;
-		font-size: $fs-sm;
-		font-weight: 500;
-		color: $text-main;
-		background-color: $bg-card;
-		border: 1rpx solid $border-strong;
-		border-radius: $radius-pill;
-		box-shadow: $shadow-sm;
-		transition: background-color $duration-fast ease;
-	}
-
-	.filter-emoji {
-		margin-right: 8rpx;
-		font-size: 26rpx;
-	}
-
-	.filter-item.active {
-		color: $brand;
-		font-weight: 600;
-		background-color: $brand-soft;
-		border-color: $brand-soft;
-	}
-
-	/* ── 位置信息栏 ── */
-	.location-bar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0 $space-lg 20rpx;
-		flex-shrink: 0;
-	}
-
-	.location-left {
-		display: flex;
-		align-items: center;
-		overflow: hidden;
-		flex: 1;
-		margin-right: $space-sm;
-	}
-
-	.location-dot {
-		width: 14rpx;
-		height: 14rpx;
-		background-image: $brand-gradient;
-		border-radius: 50%;
-		margin-right: 12rpx;
-		flex-shrink: 0;
-		box-shadow: 0 0 0 4rpx rgba(0, 105, 92, 0.2);
-	}
-
-	.location-name {
-		font-size: 30rpx;
-		font-weight: 600;
-		color: $text-main;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.location-tip {
-		display: flex;
-		align-items: baseline;
-		flex-shrink: 0;
-		background-color: $brand-soft;
-		padding: 6rpx 20rpx;
-		border-radius: $radius-pill;
-	}
-
-	.location-count {
-		font-size: 28rpx;
-		font-weight: 700;
-		color: $brand;
-	}
-
-	.location-unit {
-		font-size: $fs-xs;
-		color: $brand-light;
-	}
-
-	/* ── 地点列表 ── */
-	.list {
-		flex: 1;
-		height: 0;
-		min-height: 0;
-		background-color: $bg-page;
-		padding: 8rpx 0 12rpx;
-	}
-
-	.spot {
-		display: flex;
-		align-items: center;
-		background-color: $bg-card;
-		border-radius: $radius-lg;
-		padding: 20rpx $space-md;
-		margin: 0 $space-md $space-sm;
-		box-shadow: 0 4rpx 16rpx rgba(29, 33, 41, 0.05);
-		transition: all $duration-fast ease;
-		
-		&:active {
-			transform: translateY(2rpx);
-			box-shadow: none;
-			background-color: $bg-fill;
-		}
-	}
-
-	.spot-thumb {
-		width: 96rpx;
-		height: 96rpx;
-		border-radius: $radius-md;
-		margin-right: $space-md;
-		flex-shrink: 0;
-		background-color: $bg-fill;
-	}
-
-	.spot-icon {
-		width: 96rpx;
-		height: 96rpx;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: $radius-md;
-		margin-right: $space-md;
-		flex-shrink: 0;
-	}
-
-	.spot-emoji {
-		font-size: 44rpx;
-		line-height: 1;
-	}
-
-	.spot-info {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-	}
-
-	.spot-head {
-		display: flex;
-		align-items: center;
-		margin-bottom: 10rpx;
-	}
-
-	.spot-name {
-		flex: 1;
-		font-size: $fs-lg;
-		font-weight: 600;
-		color: $text-main;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		margin-right: 12rpx;
-	}
-
-	.spot-tag {
-		flex-shrink: 0;
-		font-size: $fs-xs;
-		padding: 6rpx 18rpx;
-		border-radius: $radius-pill;
-		font-weight: 500;
-	}
-
-	.spot-desc {
-		font-size: $fs-sm;
-		color: $text-secondary;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		line-height: 1.4;
-	}
-
-	.spot-arrow {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 48rpx;
-		height: 48rpx;
-		background-color: $bg-fill;
-		border-radius: 50%;
-		flex-shrink: 0;
-		margin-left: 12rpx;
-	}
-
-	.arrow-icon-text {
-		font-size: 32rpx;
-		color: $text-disabled;
-		line-height: 1;
-		margin-top: -4rpx;
-	}
-
-	.list-footer {
-		padding: 16rpx 0 8rpx;
-		text-align: center;
-	}
-
-	.list-footer-text {
-		font-size: $fs-xs;
-		color: $text-placeholder;
-	}
-
-	/* ── 空状态 ── */
-	.empty {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding-bottom: 60rpx;
-	}
-
-	.empty-icon {
-		font-size: 80rpx;
-		line-height: 1;
-		margin-bottom: 20rpx;
-		opacity: 0.4;
-	}
-
-	.empty-text {
-		font-size: $fs-md;
-		font-weight: 500;
-		color: $text-secondary;
-	}
-
-	.empty-sub {
-		margin-top: 8rpx;
-		font-size: $fs-sm;
-		color: $text-placeholder;
-	}
-
-	/* ── 详情弹窗 ── */
-	.mask {
+	/* 底部面板包装容器 - 固定定位 */
+	.gm-bottom-sheet-wrapper {
 		position: fixed;
-		left: 0;
-		top: 0;
-		right: 0;
 		bottom: 0;
-		background-color: rgba(17, 24, 39, 0.6);
+		left: 0;
+		right: 0;
+		z-index: 100;
+		pointer-events: auto;
+		touch-action: manipulation;
+		transition: height 150ms cubic-bezier(0.4, 0, 0.2, 1);
+		will-change: height;
 		display: flex;
-		align-items: flex-end;
-		z-index: 99;
-		animation: fadeIn 0.2s ease;
+		flex-direction: column;
 	}
 
-	.detail {
-		width: 100%;
-		background-color: $bg-card;
-		border-radius: $radius-xl $radius-xl 0 0;
-		box-sizing: border-box;
+	/* 底部面板 */
+	.gm-bottom-sheet {
+		background-color: #FFFFFF;
+		border-radius: 28rpx 28rpx 0 0;
+		box-shadow: 0 -4rpx 16rpx rgba(60, 64, 67, 0.15);
 		overflow: hidden;
-		animation: slideUp 0.3s cubic-bezier(0.34, 1.1, 0.64, 1);
-	}
-
-	.detail-scroll {
-		max-height: 66vh;
-	}
-
-	.detail-inner {
-		padding: 0 $space-lg $space-md;
-	}
-
-	@keyframes slideUp {
-		from {
-			transform: translateY(100%);
-			opacity: 0.6;
-		}
-		to {
-			transform: translateY(0);
-			opacity: 1;
-		}
-	}
-
-	.detail-handle-wrap {
 		display: flex;
-		justify-content: center;
-		padding: 20rpx 0 8rpx;
+		flex-direction: column;
+		height: 100%;
+		position: relative;
+		z-index: 100;
+		pointer-events: auto;
+		touch-action: manipulation;
 	}
 
-	.detail-head {
+	/* 地图列表卡片样式 */
+	.gm-place-item-card {
 		display: flex;
-		align-items: center;
-		margin-top: 8rpx;
-		margin-bottom: 4rpx;
+		align-items: stretch;
+		padding: 16rpx 16rpx;
+		margin-bottom: 12rpx;
+		border-radius: 16rpx;
+		background-color: #FFFFFF;
+		box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.1);
+		transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+		cursor: pointer;
 	}
 
-	.detail-icon {
-		width: 88rpx;
-		height: 88rpx;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: $radius-lg;
-		margin-right: $space-md;
-		flex-shrink: 0;
+	.gm-place-item-card:active {
+		background-color: #F8F9FA;
+		box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.15);
+		transform: scale(0.98);
 	}
 
-	.detail-icon-text {
-		font-size: 44rpx;
-		line-height: 1;
-	}
-
-	.detail-title-wrap {
+	/* 卡片左侧内容区 */
+	.gm-place-card-content {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
+		justify-content: flex-start;
 		overflow: hidden;
+		padding-right: 16rpx;
 	}
 
-	.detail-name {
-		font-size: 40rpx;
-		font-weight: 700;
-		color: $text-main;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.detail-tag {
-		display: inline-block;
-		margin-top: 10rpx;
-		font-size: $fs-xs;
-		padding: 6rpx 20rpx;
-		border-radius: $radius-pill;
-		font-weight: 500;
-		align-self: flex-start;
-	}
-
-	/* 评分 */
-	.stars {
-		display: inline-flex;
-		align-items: center;
-	}
-
-	.star {
-		font-size: 26rpx;
-		color: $border-strong;
-		line-height: 1;
-	}
-
-	.star.on {
-		color: $warning;
-	}
-
-	.stars.small .star {
-		font-size: 22rpx;
-	}
-
-	.detail-rating {
-		display: flex;
-		align-items: center;
-		margin-top: $space-md;
-		padding: 16rpx 20rpx;
-		background-color: $bg-page;
-		border-radius: $radius-md;
-	}
-
-	.detail-rating-text {
-		flex: 1;
-		margin-left: 12rpx;
-		font-size: $fs-sm;
-		color: $text-regular;
-	}
-
-	.detail-rating-arrow {
-		font-size: 36rpx;
-		color: $text-disabled;
-	}
-
-	.spot-rating {
-		display: flex;
-		align-items: center;
-		margin-top: 8rpx;
-	}
-
-	.spot-rating-text {
-		margin-left: 8rpx;
-		font-size: $fs-xs;
-		font-weight: 600;
-		color: $warning;
-	}
-
-	.detail-images {
-		width: 100%;
-		white-space: nowrap;
-		margin: 8rpx 0 $space-md;
-	}
-
-	.detail-image {
-		display: inline-block;
-		width: 300rpx;
-		height: 210rpx;
-		margin-right: $space-sm;
-		border-radius: $radius-md;
-		background-color: $bg-fill;
-	}
-
-	.detail-image-add {
-		display: inline-flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		width: 210rpx;
-		height: 210rpx;
-		border-radius: $radius-md;
-		background-color: $bg-fill;
-		border: 2rpx dashed $border-strong;
-		vertical-align: top;
-	}
-
-	.detail-add-icon {
-		font-size: 56rpx;
-		color: $text-placeholder;
-		line-height: 1;
-	}
-
-	.detail-add-text {
-		margin-top: 10rpx;
-		font-size: $fs-xs;
-		color: $text-secondary;
-	}
-
-	.detail-image-empty {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		height: 260rpx;
-		margin: 8rpx 0 $space-md;
-		background-color: $bg-fill;
-		border: 2rpx dashed $border-strong;
-		border-radius: $radius-lg;
-	}
-
-	.detail-empty-icon {
-		font-size: 64rpx;
-		line-height: 1;
-		opacity: 0.5;
-	}
-
-	.detail-empty-title {
-		margin-top: 16rpx;
-		font-size: $fs-md;
-		font-weight: 500;
-		color: $text-secondary;
-	}
-
-	.detail-empty-sub {
-		margin-top: 8rpx;
-		font-size: $fs-xs;
-		color: $text-placeholder;
-	}
-
-	.detail-body {
-		margin-top: $space-md;
-		background-color: $bg-page;
-		border-radius: $radius-lg;
-		padding: 8rpx $space-md;
-	}
-
-	.detail-row {
-		display: flex;
-		align-items: flex-start;
-		padding: 20rpx 0;
-		border-bottom: 1rpx solid $border-color;
-		
-		&:last-child {
-			border-bottom: none;
-		}
-	}
-
-	.detail-row-icon {
-		font-size: 28rpx;
-		margin-right: 16rpx;
-		line-height: 1.5;
+	/* 卡片右侧图片区 */
+	.gm-place-card-image {
+		width: 120rpx;
+		height: 120rpx;
 		flex-shrink: 0;
-	}
-
-	.detail-row-text {
-		flex: 1;
-		font-size: $fs-sm;
-		color: $text-regular;
-		line-height: 1.6;
-	}
-
-	.detail-actions {
-		display: flex;
-		gap: 16rpx;
-		padding: $space-md $space-lg;
-		padding-bottom: calc(20rpx + constant(safe-area-inset-bottom));
-		padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
-		background-color: $bg-card;
-		flex-shrink: 0;
-	}
-
-	.detail-btn {
-		flex: 1;
-		height: 96rpx;
-		line-height: 96rpx;
-		font-size: $fs-md;
-		font-weight: 600;
-		border-radius: $radius-pill;
-		transition: all $duration-fast ease;
-		
-		&:active {
-			transform: scale(0.97);
-		}
-	}
-
-	.detail-btn.close {
-		color: $text-regular;
-		background-color: $bg-fill;
-	}
-
-	.detail-btn.feedback {
-		color: $brand;
-		background-color: $brand-soft;
-	}
-
-	.detail-btn.nav {
-		color: $text-inverse;
-		background-image: $brand-gradient;
-		box-shadow: $brand-shadow;
-	}
-
-	.nav-icon {
-		margin-right: 8rpx;
-	}
-
-	.detail-btn.nav[disabled] {
-		opacity: 0.45;
-		box-shadow: none;
-	}
-
-	/* ── 详情内评价 ── */
-	.detail-comments {
-		margin-top: $space-md;
-	}
-
-	.dc-head {
-		display: flex;
-		align-items: baseline;
-		margin-bottom: $space-sm;
-	}
-
-	.dc-title {
-		font-size: $fs-lg;
-		font-weight: 700;
-		color: $text-main;
-	}
-
-	.dc-count {
-		margin-left: 12rpx;
-		font-size: $fs-sm;
-		color: $text-secondary;
-	}
-
-	.dc-tip {
-		padding: 24rpx 0;
-		font-size: $fs-sm;
-		color: $text-secondary;
-	}
-
-	.dc-item {
-		display: flex;
-		padding: $space-md 0;
-		border-bottom: 1rpx solid $border-color;
-	}
-
-	.dc-avatar {
-		width: 64rpx;
-		height: 64rpx;
-		border-radius: 50%;
-		margin-right: $space-md;
-		flex-shrink: 0;
-		background-color: $bg-fill;
-	}
-
-	.dc-avatar-text {
-		line-height: 64rpx;
-		text-align: center;
-		font-size: $fs-md;
-		color: $text-inverse;
-		background-image: $brand-gradient;
-	}
-
-	.dc-body {
-		flex: 1;
+		border-radius: 12rpx;
 		overflow: hidden;
-	}
-
-	.dc-item-head {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.dc-name {
-		font-size: $fs-md;
-		font-weight: 600;
-		color: $text-main;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		margin-right: $space-sm;
-	}
-
-	.dc-content {
-		display: block;
-		margin-top: 8rpx;
-		font-size: $fs-sm;
-		color: $text-regular;
-		line-height: 1.6;
-		word-break: break-all;
-	}
-
-	.dc-write {
-		margin-top: $space-md;
-		font-size: $fs-md;
-		font-weight: 500;
-		color: $brand;
-		background-color: $brand-soft;
-		border-radius: $radius-pill;
-	}
-
-	/* ── 评价 / 反馈弹窗 ── */
-	.composer {
-		width: 100%;
-		background-color: $bg-card;
-		border-radius: $radius-xl $radius-xl 0 0;
-		padding: $space-lg $space-lg 40rpx;
-		box-sizing: border-box;
-	}
-
-	.composer-title {
-		display: block;
-		font-size: $fs-lg;
-		font-weight: 700;
-		color: $text-main;
-		text-align: center;
-	}
-
-	.rate-row {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		margin: $space-lg 0;
-	}
-
-	.rate-star {
-		font-size: 60rpx;
-		color: $border-strong;
-		line-height: 1;
-		margin: 0 8rpx;
-	}
-
-	.rate-star.on {
-		color: $warning;
-	}
-
-	.rate-text {
-		margin-left: $space-md;
-		font-size: $fs-md;
-		font-weight: 500;
-		color: $warning;
-	}
-
-	.composer-input {
-		width: 100%;
-		height: 220rpx;
-		padding: 20rpx $space-md;
-		font-size: $fs-md;
-		color: $text-main;
-		background-color: $bg-fill;
-		border-radius: $radius-md;
-	}
-
-	.composer-actions {
-		display: flex;
-		margin-top: $space-lg;
-		gap: 20rpx;
-	}
-
-	.c-btn {
-		flex: 1;
-		font-size: $fs-lg;
-		font-weight: 600;
-		border-radius: $radius-pill;
-	}
-
-	.c-btn.cancel {
-		color: $text-regular;
-		background-color: $bg-fill;
-	}
-
-	.c-btn.submit {
-		color: $text-inverse;
-		background-image: $brand-gradient;
-		box-shadow: $brand-shadow;
+		background-color: #F1F3F4;
 	}
 </style>

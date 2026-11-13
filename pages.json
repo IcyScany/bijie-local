@@ -1,5 +1,5 @@
 {
-	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
+	"pages": [
 		{
 			"path": "pages/map/map",
 			"style": {
@@ -44,34 +44,37 @@
 		}
 	],
 	"tabBar": {
-		"color": "#5F6368",
-		"selectedColor": "#00695C",
-		"backgroundColor": "#ffffff",
-		"borderStyle": "black",
+		"color": "#80868B",
+		"selectedColor": "#007B8B",
+		"backgroundColor": "#F8F9FA",
+		"borderStyle": "white",
+		"height": "100rpx",
+		"fontSize": "22rpx",
+		"spacing": "6rpx",
 		"list": [
 			{
 				"pagePath": "pages/map/map",
-				"text": "地图",
+				"text": "探索",
 				"iconPath": "static/tabbar/map.png",
 				"selectedIconPath": "static/tabbar/map-active.png"
 			},
 			{
 				"pagePath": "pages/contribute/contribute",
-				"text": "补充",
-				"iconPath": "static/tabbar/add.png",
-				"selectedIconPath": "static/tabbar/add-active.png"
+				"text": "补充/纠错",
+				"iconPath": "static/tabbar/add_location.png",
+				"selectedIconPath": "static/tabbar/add_location-actiev.png"
 			},
 			{
 				"pagePath": "pages/contributors/contributors",
-				"text": "排行",
-				"iconPath": "static/tabbar/rank.png",
-				"selectedIconPath": "static/tabbar/rank-active.png"
+				"text": "贡献",
+				"iconPath": "static/tabbar/leaderboard.png",
+				"selectedIconPath": "static/tabbar/leaderboard-active.png"
 			},
 			{
 				"pagePath": "pages/mine/mine",
 				"text": "我的",
-				"iconPath": "static/tabbar/mine.png",
-				"selectedIconPath": "static/tabbar/mine-active.png"
+				"iconPath": "static/tabbar/person.png",
+				"selectedIconPath": "static/tabbar/person-active.png"
 			}
 		]
 	},

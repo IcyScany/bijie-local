@@ -22,13 +22,18 @@
 </script>
 
 <style lang="scss">
+	/* 导入 Google Maps 工具类 */
+	@import "./styles/google-maps.scss";
+	/* 导入 Tabbar 样式 */
+	@import "./styles/tabbar.scss";
+
 	/* Google Maps Style - Global Styles */
 	page {
 		background-color: $bg-page;
 		color: $text-main;
 		font-size: $fs-md;
 		line-height: 1.5;
-		font-family: 'Google Sans', 'Roboto', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
 		-webkit-font-smoothing: antialiased;
 	}
 
@@ -45,53 +50,6 @@
 		
 		&:active {
 			opacity: 0.92;
-		}
-	}
-
-	/* FAB - Floating Action Button */
-	.gm-fab {
-		width: 112rpx;
-		height: 112rpx;
-		border-radius: 50%;
-		background-color: $brand;
-		color: $text-inverse;
-		box-shadow: $shadow-fab;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		
-		&:active {
-			transform: scale(0.95);
-		}
-	}
-
-	/* Google Material Card */
-	.gm-card {
-		background-color: $bg-card;
-		border-radius: $radius-sm;
-		box-shadow: $shadow-card;
-		transition: all $duration-fast cubic-bezier(0.4, 0, 0.2, 1);
-	}
-
-	/* Google Material Chip */
-	.gm-chip {
-		display: inline-flex;
-		align-items: center;
-		padding: 12rpx 24rpx;
-		border-radius: $radius-pill;
-		background-color: $bg-fill;
-		color: $text-regular;
-		font-size: $fs-sm;
-		font-weight: 500;
-		transition: all $duration-fast cubic-bezier(0.4, 0, 0.2, 1);
-		
-		&:active {
-			background-color: $bg-fill-hover;
-		}
-		
-		&.active {
-			background-color: $brand-soft;
-			color: $brand;
 		}
 	}
 
