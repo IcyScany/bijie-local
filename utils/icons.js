@@ -12,6 +12,7 @@ export const ICONS = {
 	nearMe: '/static/icons/near_me.svg',
 	photoCamera: '/static/icons/photo_camera.svg',
 	locationOn: '/static/icons/location_on.svg',
+	person: '/static/icons/person.svg',
 	
 	// 分类图标
 	restaurant: '/static/icons/restaurant.svg',

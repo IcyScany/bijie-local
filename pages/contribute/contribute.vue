@@ -7,7 +7,7 @@
 
 		<scroll-view class="form-scroll" scroll-y>
 			<view class="form">
-				<template v-if="reportType === 'new'">
+				<view v-if="reportType === 'new'">
 					<view class="field">
 						<view class="locate-btn" @click="chooseLocation">
 							<text class="locate-icon">📍</text>
@@ -38,9 +38,9 @@
 						<text class="label">描述</text>
 						<textarea class="textarea" v-model="form.remark" placeholder="简单描述（特色、营业时间等）" />
 					</view>
-				</template>
+				</view>
 
-				<template v-else>
+				<view v-else>
 					<view class="field">
 						<text class="label">要纠错的地点 *</text>
 						<picker :range="spotNames" @change="onTargetChange">
@@ -52,7 +52,7 @@
 						<text class="label">纠错说明 *</text>
 						<textarea class="textarea" v-model="form.report_reason" placeholder="如：摊位已搬迁到对面" />
 					</view>
-				</template>
+				</view>
 
 				<view class="field">
 					<text class="label">现场图片（可选，最多9张）</text>
@@ -88,27 +88,14 @@
 	import { onLoad } from '@dcloudio/uni-app'
 	import { getToken } from '@/utils/auth.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
+	import { PLACE_TYPES, getTypeLabel } from '@/utils/placeTypes.js'
 
 	const favoriteObj = uniCloud.importObject('favorite-spots', {
 		customUI: true
 	})
 
-	const typeOptions = [{
-		label: '美食',
-		value: 'food'
-	}, {
-		label: '景点',
-		value: 'view'
-	}, {
-		label: '便民厕所',
-		value: 'toilet'
-	}, {
-		label: '便民商店',
-		value: 'shop'
-	}, {
-		label: '其他',
-		value: 'other'
-	}]
+	// 类型选项统一来自 utils/place-types.json
+	const typeOptions = PLACE_TYPES
 
 	const reportType = ref('new')
 	const form = ref({
@@ -145,7 +132,7 @@
 	})
 
 	const spotNames = computed(() => {
-		return spots.value.map(item => item.name)
+		return (spots.value || []).map(item => item.name)
 	})
 
 	onLoad(() => {
@@ -161,8 +148,7 @@
 	}
 
 	function typeText(type) {
-		const item = typeOptions.find(opt => opt.value === type)
-		return item ? item.label : '其他'
+		return getTypeLabel(type)
 	}
 
 	// 加载已通过审核的地点，供纠错时选择
@@ -173,7 +159,7 @@
 				page: 1,
 				pageSize: 200
 			})
-			spots.value = res.list
+			spots.value = (res && res.list) || []
 		} catch (err) {
 			showError(err)
 		}
@@ -400,6 +386,8 @@
 
 	.form-scroll {
 		flex: 1;
+		height: 0;
+		min-height: 0;
 	}
 
 	.form {

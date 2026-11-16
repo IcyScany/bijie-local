@@ -220,10 +220,37 @@ module.exports = {
 					rating_count: row.count || 0
 				}
 			})
+
+			// 每个地点最新一条评价（用于列表卡片底部展示）
+			const latestAgg = await db.collection('spot-comments')
+				.aggregate()
+				.match({
+					spot_id: dbCmd.in(ids)
+				})
+				.sort({
+					create_date: -1
+				})
+				.group({
+					_id: '$spot_id',
+					content: $.first('$content'),
+					nickname: $.first('$nickname'),
+					rating: $.first('$rating')
+				})
+				.end()
+			const latestMap = {}
+			;(latestAgg.data || []).forEach(row => {
+				latestMap[row._id] = {
+					content: row.content || '',
+					nickname: row.nickname || '',
+					rating: row.rating || 0
+				}
+			})
+
 			list.forEach(item => {
 				const r = ratingMap[item._id]
 				item.rating = r ? r.rating : 0
 				item.rating_count = r ? r.rating_count : 0
+				item.latest_comment = latestMap[item._id] || null
 			})
 		}
 

@@ -125,31 +125,18 @@
 	import { onLoad, onShow } from '@dcloudio/uni-app'
 	import { ensureLogin, isAdmin, getToken, isAuthError, relogin } from '@/utils/auth.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
+	import { PLACE_TYPES, getTypeLabel, getTypeColor } from '@/utils/placeTypes.js'
 	import AppSkeleton from '@/components/AppSkeleton.vue'
 
 	const favoriteObj = uniCloud.importObject('favorite-spots', {
 		customUI: true
 	})
 
+	// 类型选项统一来自 utils/place-types.json
 	const typeFilters = [{
 		label: '全部',
 		value: ''
-	}, {
-		label: '美食',
-		value: 'food'
-	}, {
-		label: '景点',
-		value: 'view'
-	}, {
-		label: '便民厕所',
-		value: 'toilet'
-	}, {
-		label: '便民商店',
-		value: 'shop'
-	}, {
-		label: '其他',
-		value: 'other'
-	}]
+	}, ...PLACE_TYPES]
 
 	const statusFilters = [{
 		label: '全部',
@@ -165,22 +152,7 @@
 		value: 'rejected'
 	}]
 
-	const typeOptions = [{
-		label: '美食',
-		value: 'food'
-	}, {
-		label: '景点',
-		value: 'view'
-	}, {
-		label: '便民厕所',
-		value: 'toilet'
-	}, {
-		label: '便民商店',
-		value: 'shop'
-	}, {
-		label: '其他',
-		value: 'other'
-	}]
+	const typeOptions = PLACE_TYPES
 
 	function emptyForm() {
 		return {
@@ -267,16 +239,11 @@
 	}
 
 	function typeText(type) {
-		const item = typeOptions.find(opt => opt.value === type)
-		return item ? item.label : '其他'
+		return getTypeLabel(type)
 	}
 
 	function typeColor(type) {
-		if (type === 'food') return '#E8710A'
-		if (type === 'view') return '#188038'
-		if (type === 'toilet') return '#1A73E8'
-		if (type === 'shop') return '#8430CE'
-		return '#5F6368'
+		return getTypeColor(type)
 	}
 
 	// 按关键词、类型、审核状态分页查询地点列表

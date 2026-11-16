@@ -1,0 +1,42 @@
+[
+	{
+		"value": "food",
+		"label": "美食",
+		"icon": "restaurant",
+		"color": "#E8710A",
+		"bg": "#FEF1E6",
+		"map": true
+	},
+	{
+		"value": "view",
+		"label": "景点",
+		"icon": "forest",
+		"color": "#188038",
+		"bg": "#E6F4EA",
+		"map": true
+	},
+	{
+		"value": "toilet",
+		"label": "便民厕所",
+		"icon": "wc",
+		"color": "#1A73E8",
+		"bg": "#E8F0FE",
+		"map": true
+	},
+	{
+		"value": "shop",
+		"label": "便民商店",
+		"icon": "storefront",
+		"color": "#8430CE",
+		"bg": "#F3E8FD",
+		"map": true
+	},
+	{
+		"value": "other",
+		"label": "其他",
+		"icon": "locationOn",
+		"color": "#5F6368",
+		"bg": "#F1F3F4",
+		"map": true
+	}
+]

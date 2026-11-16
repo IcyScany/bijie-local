@@ -33,11 +33,11 @@ $bg-fill: #F1F3F4;             // Subtle fill
 
 /* 文本颜色 */
 $text-main: #202124;           // Primary text
-$text-primary: #202124;     
+$text-primary: #202124;
 $text-secondary: #5F6368;      // Secondary text
 $text-tertiary: #9AA0A6;       // Tertiary text
 $text-placeholder: #BDC1C6;    // Placeholder
-$text-regular: #5F6368;     
+$text-regular: #5F6368;
 $text-inverse: #FFFFFF;        // White text
 $text-disabled: #DADCE0;       // Disabled state
 
@@ -358,27 +358,18 @@ $fs-2xl: 42rpx;
 	box-shadow: 0 5rpx 18rpx rgba(0, 123, 139, 0.18);
 }
 
-/* 地图页chip样式（更紧凑） */
+/* 地图页chip样式（复用 .gm-chip 基础，仅保留差异：更紧凑） */
 .gm-chip-map {
-	height: 72rpx;
-	line-height: 72rpx;
-	padding: 0 24rpx;
-	font-size: 24rpx;
-	background-color: #FFFFFF;
-	border: 1.5rpx solid #E8EAED;
+	height: 64rpx;
+	line-height: 64rpx;
+	padding: 0 18rpx;
+	font-size: 26rpx;
+	gap: 6rpx;
 	box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.08);
-	border-radius: 100rpx;
-	display: inline-flex;
-	align-items: center;
-	gap: 8rpx;
-	white-space: nowrap;
-	transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .gm-chip-map:active {
-	background-color: #F1F3F4;
 	transform: scale(0.96);
-	box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.12);
 }
 
 .gm-chip-map.gm-chip-selected {
@@ -391,7 +382,6 @@ $fs-2xl: 42rpx;
 .gm-chip-map.gm-chip-selected:active {
 	background-color: #1565C0;
 	border-color: #1565C0;
-	transform: scale(0.96);
 	box-shadow: 0 6rpx 20rpx rgba(26, 115, 232, 0.35);
 }
 
