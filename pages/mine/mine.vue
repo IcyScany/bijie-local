@@ -23,14 +23,43 @@
 			</view>
 		</view>
 
-		<view class="menu">
+		<!-- 管理员菜单（仅管理员可见） -->
+		<view v-if="user.isAdmin" class="menu">
+			<view class="menu-item" @click="goAdmins">
+				<text class="menu-label">管理权限</text>
+				<text class="menu-arrow">›</text>
+			</view>
 			<view class="menu-item" @click="goAdmin">
 				<text class="menu-label">地点管理</text>
+				<text class="menu-arrow">›</text>
+			</view>
+		</view>
+
+		<view class="menu">
+			<view class="menu-item" @click="goContributions">
+				<text class="menu-label">我的贡献</text>
 				<text class="menu-arrow">›</text>
 			</view>
 			<view class="menu-item" @click="goContributors">
 				<text class="menu-label">贡献者排行</text>
 				<text class="menu-arrow">›</text>
+			</view>
+		</view>
+
+		<!-- 我的收藏 -->
+		<view class="section-head">
+			<text class="section-title">我的收藏</text>
+			<text class="section-more" @click="openFavorites">查看全部 ›</text>
+		</view>
+		<view class="fav-card">
+			<view v-if="!favorites.length" class="fav-empty">还没有收藏地点</view>
+			<view v-for="spot in favorites" :key="spot._id" class="fav-item" @click="openFavorites">
+				<image v-if="spot.thumb" class="fav-thumb" :src="spot.thumb" mode="aspectFill" />
+				<view v-else class="fav-thumb fav-thumb-placeholder">📍</view>
+				<view class="fav-info">
+					<text class="fav-name">{{ spot.name }}</text>
+					<text class="fav-address" v-if="spot.address">{{ spot.address }}</text>
+				</view>
 			</view>
 		</view>
 
@@ -70,6 +99,12 @@
 
 	const instance = getCurrentInstance()
 
+	const spotFavObj = uniCloud.importObject('spot-favorites', {
+		customUI: true
+	})
+
+	const favorites = ref([])
+
 	const user = ref({
 		nickname: '',
 		avatar: '',
@@ -87,7 +122,31 @@
 
 	onShow(() => {
 		loadProfile()
+		loadFavorites()
 	})
+
+	// 加载收藏地点列表
+	async function loadFavorites() {
+		try {
+			await ensureLogin()
+		} catch (e) {
+			favorites.value = []
+			return
+		}
+		try {
+			const res = await spotFavObj.list(getToken())
+			favorites.value = (res && res.data) || []
+		} catch (e) {
+			favorites.value = []
+		}
+	}
+
+	// 打开收藏目录页
+	function openFavorites() {
+		uni.navigateTo({
+			url: '/pages/favorites/favorites'
+		})
+	}
 
 	// 加载当前用户资料与贡献统计
 	async function loadProfile() {
@@ -263,13 +322,25 @@
 
 	function goAdmin() {
 		uni.navigateTo({
-			url: '/pages/admin/favorites'
+			url: '/pages/admin/review'
+		})
+	}
+
+	function goAdmins() {
+		uni.navigateTo({
+			url: '/pages/admin/admins'
 		})
 	}
 
 	function goContributors() {
 		uni.switchTab({
 			url: '/pages/contributors/contributors'
+		})
+	}
+
+	function goContributions() {
+		uni.navigateTo({
+			url: '/pages/contributions/contributions'
 		})
 	}
 </script>
@@ -418,6 +489,91 @@
 	.menu-arrow {
 		font-size: 40rpx;
 		color: $text-disabled;
+	}
+
+	/* 我的收藏 */
+	.section-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin: $space-lg 0 $space-sm;
+	}
+
+	.section-title {
+		font-size: 30rpx;
+		font-weight: 600;
+		color: $text-main;
+	}
+
+	.section-more {
+		font-size: $fs-sm;
+		color: $brand;
+	}
+
+	.fav-card {
+		background-color: $bg-card;
+		border-radius: $radius-lg;
+		overflow: hidden;
+		box-shadow: $shadow-card;
+	}
+
+	.fav-empty {
+		padding: $space-lg;
+		text-align: center;
+		font-size: $fs-sm;
+		color: $text-secondary;
+	}
+
+	.fav-item {
+		display: flex;
+		align-items: center;
+		padding: $space-md $space-lg;
+		border-bottom: 1rpx solid $border-color;
+	}
+
+	.fav-item:last-child {
+		border-bottom: none;
+	}
+
+	.fav-thumb {
+		width: 96rpx;
+		height: 96rpx;
+		border-radius: $radius-sm;
+		flex-shrink: 0;
+		margin-right: $space-md;
+		background-color: $bg-fill;
+	}
+
+	.fav-thumb-placeholder {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 40rpx;
+	}
+
+	.fav-info {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.fav-name {
+		font-size: 30rpx;
+		font-weight: 500;
+		color: $text-main;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.fav-address {
+		margin-top: 6rpx;
+		font-size: $fs-sm;
+		color: $text-secondary;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.mask {

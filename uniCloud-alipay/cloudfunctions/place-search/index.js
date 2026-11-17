@@ -1,16 +1,16 @@
 'use strict';
 
 const crypto = require('crypto')
+const { TENCENT_MAP_KEY, TENCENT_MAP_SK } = require('app-config')
 
-const TENCENT_MAP_KEY = 'P5RBZ-REHL7-37BXR-PYFUL-VNK4T-ODB75'
-const TENCENT_MAP_SK = 'bwOY5bi38Go6J1IaOAn7nJBp5gFooeEO'
-
+// 生成腾讯地图签名：参数按 key 排序后拼接并 md5
 function buildSig(path, params, sk) {
 	const keys = Object.keys(params).sort()
 	const query = keys.map(key => key + '=' + params[key]).join('&')
 	return crypto.createHash('md5').update(path + '?' + query + sk, 'utf8').digest('hex')
 }
 
+// 逆地址解析：经纬度转推荐地址与周边 POI
 async function reverseGeocode(event) {
 	const latitude = Number(event.latitude)
 	const longitude = Number(event.longitude)
@@ -54,6 +54,7 @@ async function reverseGeocode(event) {
 	}
 }
 
+// 云函数入口：type=reverse 时逆地址解析，否则按关键词搜索地点
 exports.main = async (event) => {
 	if (event.type === 'reverse') {
 		return await reverseGeocode(event)

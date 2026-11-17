@@ -1,0 +1,10 @@
+{
+  "name": "spot-comments",
+  "dependencies": {
+    "app-config": "file:../common/app-config",
+    "cloud-auth": "file:../common/cloud-auth"
+  },
+  "extensions": {
+    "uni-cloud-jql": {}
+  }
+}

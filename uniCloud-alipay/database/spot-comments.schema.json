@@ -14,7 +14,7 @@
 		"spot_id": {
 			"bsonType": "string",
 			"title": "地点ID",
-			"description": "被评价地点 favorite-spots 的 _id"
+			"description": "被评价地点 spots 的 _id"
 		},
 		"openid": {
 			"bsonType": "string",

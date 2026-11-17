@@ -1,99 +1,109 @@
 <template>
 	<view class="spot-detail-root">
 		<!-- 地点详情 -->
-		<view v-if="visible" class="gm-overlay" @click="emit('close')">
-			<view class="gm-bottom-sheet spot-detail-sheet" @click.stop>
+		<view v-if="visible" class="gm-overlay gm-detail-overlay" @click="emit('close')">
+			<view class="gm-bottom-sheet spot-detail-sheet" :style="{ height: sheetHeight + 'vh' }" @click.stop>
 				<!-- 拖动条 -->
-				<view class="gm-bottom-sheet-handle">
+				<view
+					class="gm-bottom-sheet-handle"
+					@touchstart="onDragStart"
+					@touchmove="onDragMove"
+					@touchend="onDragEnd"
+				>
 					<view class="gm-bottom-sheet-bar"></view>
+				</view>
+
+				<!-- 头部（固定）：名称 + 关闭 -->
+				<view class="gm-flex" style="justify-content: space-between; align-items: flex-start; padding: 0 24rpx 16rpx;">
+					<view style="flex: 1; overflow: hidden;">
+						<text style="font-size: 36rpx; font-weight: 700; color: #202124; line-height: 1.3; display: block; word-break: break-all;">{{ spot.name }}</text>
+						<!-- 分类标签 + 评分（并排） -->
+						<view class="gm-flex" style="align-items: center; margin-top: 8rpx; gap: 12rpx; flex-wrap: wrap;">
+							<view class="gm-tag" :style="{ color: typeColor(spot.type), backgroundColor: typeBg(spot.type), fontSize: '22rpx', padding: '6rpx 16rpx' }">{{ typeText(spot.type) }}</view>
+							<text v-if="!rating.count" class="gm-font-sm gm-text-secondary">暂无评价</text>
+							<view v-else class="gm-flex" style="align-items: center;">
+								<text class="gm-place-rating-num">{{ rating.avg }}</text>
+								<view class="gm-place-rating-stars">
+									<view class="gm-place-rating-stars-bg">★★★★★</view>
+									<view class="gm-place-rating-stars-fill" :style="{ width: starPercent(rating.avg) }">★★★★★</view>
+								</view>
+								<text class="gm-place-rating-count">({{ formatCount(rating.count) }})</text>
+							</view>
+						</view>
+					</view>
+					<button class="gm-btn" style="width: 56rpx; height: 56rpx; min-width: 0; padding: 0; border-radius: 50%; background-color: #F1F3F4; color: #202124; font-size: 28rpx; line-height: 1; display: flex; align-items: center; justify-content: center;" @click="emit('close')">✕</button>
 				</view>
 
 				<!-- 滚动内容区 -->
 				<scroll-view style="flex: 1; height: 0; min-height: 0;" scroll-y :show-scrollbar="false">
-					<!-- 图片轮播区 -->
-					<scroll-view v-if="images.length" style="width: 100%; height: 300rpx; white-space: nowrap;" scroll-x :show-scrollbar="false">
-						<image
-							v-for="(img, i) in images"
-							:key="i"
-							style="width: 100%; height: 300rpx; display: inline-block; background-color: #F1F3F4;"
-							:src="img"
-							mode="aspectFill"
-							@click="emit('preview', i)"
-						></image>
-					</scroll-view>
-					<view v-else style="width: 100%; height: 300rpx; background-color: #F1F3F4; display: flex; align-items: center; justify-content: center;">
-						<text style="font-size: 80rpx; opacity: 0.3; color: #202124;">🖼️</text>
-					</view>
-
 					<!-- 内容区 -->
-					<view style="padding: 24rpx 24rpx;">
-						<!-- 头部：名称 + 关闭按钮 -->
-						<view class="gm-flex" style="justify-content: space-between; align-items: flex-start; margin-bottom: 16rpx;">
-							<view style="flex: 1; overflow: hidden;">
-								<text style="font-size: 36rpx; font-weight: 700; color: #202124; line-height: 1.3; display: block; word-break: break-all;">{{ spot.name }}</text>
-								<!-- 无评价提示 -->
-								<text v-if="!rating.count" class="gm-font-sm gm-text-secondary" style="display: block; margin-top: 8rpx;">暂无评价</text>
-								<!-- 有评价的显示 -->
-								<view v-else class="gm-flex gm-mt-sm" style="align-items: center;">
-									<view class="gm-stars gm-stars-sm">
-										<text v-for="n in 5" :key="n" class="gm-star" :class="{ 'gm-star-filled': n <= Math.round(rating.avg) }">★</text>
-									</view>
-									<text class="gm-font-md gm-font-bold gm-ml-xs" style="color: #FBBC04;">{{ rating.avg }}</text>
-									<text class="gm-font-sm gm-text-secondary gm-ml-xs">({{ rating.count }})</text>
-								</view>
-							</view>
-							<button class="gm-btn gm-btn-text" style="height: 64rpx; line-height: 64rpx; padding: 0 16rpx; font-size: 36rpx; margin: -16rpx -16rpx 0 0;" @click="emit('close')">✕</button>
-						</view>
-
-						<!-- 分类标签 -->
-						<view class="gm-tag" :style="{ color: typeColor(spot.type), backgroundColor: typeBg(spot.type), fontSize: '22rpx', padding: '8rpx 16rpx', marginBottom: '24rpx' }">{{ typeText(spot.type) }}</view>
-
+					<view style="padding: 0 24rpx 24rpx;">
 						<!-- 快速操作按钮 -->
 						<view class="gm-flex" style="gap: 12rpx; margin-bottom: 24rpx; flex-wrap: wrap;">
-							<button class="gm-btn gm-btn-filled" style="flex: 1; min-width: 150rpx; height: 72rpx; line-height: 72rpx; font-size: 26rpx; padding: 0 24rpx;" :disabled="!hasCoord" @click="emit('route')">
-								<app-icon icon="directions" size="sm" style="margin-right: 8rpx; vertical-align: -2rpx;" />路线
+							<button class="gm-btn gm-btn-filled" style="display: flex; align-items: center; justify-content: center; height: 68rpx; line-height: 1; padding: 0 26rpx; font-size: 27rpx;" :disabled="!hasCoord" @click="emit('route')">
+								<app-icon icon="directions" width="34rpx" style="margin-right: 8rpx;" />路线
 							</button>
-							<button class="gm-btn gm-btn-tonal" style="flex: 1; min-width: 150rpx; height: 72rpx; line-height: 72rpx; font-size: 26rpx; padding: 0 24rpx;">
-								<app-icon icon="call" size="sm" style="margin-right: 8rpx; vertical-align: -2rpx;" />致电
+							<button class="gm-btn gm-btn-tonal" style="display: flex; align-items: center; justify-content: center; height: 68rpx; line-height: 1; padding: 0 26rpx; font-size: 27rpx;" @click="emit('favorite')">
+								<app-icon icon="bookmarkStar" width="34rpx" style="margin-right: 8rpx;" />{{ favorite ? '已收藏' : '收藏' }}
 							</button>
-							<button class="gm-btn gm-btn-tonal" style="flex: 1; min-width: 150rpx; height: 72rpx; line-height: 72rpx; font-size: 26rpx; padding: 0 24rpx;" @click="openFeedback">
-								<app-icon icon="photoCamera" size="sm" style="margin-right: 8rpx; vertical-align: -2rpx;" />纠错
+							<button class="gm-btn gm-btn-tonal" style="display: flex; align-items: center; justify-content: center; height: 68rpx; line-height: 1; padding: 0 26rpx; font-size: 27rpx;" @click="emit('addImage')">
+								<app-icon icon="photoCamera" width="34rpx" style="margin-right: 8rpx;" />添加图片
+							</button>
+							<button class="gm-btn gm-btn-tonal" style="display: flex; align-items: center; justify-content: center; height: 68rpx; line-height: 1; padding: 0 26rpx; font-size: 27rpx;" @click="openFeedback">
+								<app-icon icon="rateReview" width="34rpx" style="margin-right: 8rpx;" />更新
 							</button>
 						</view>
+
+						<!-- 图片轮播区（有照片才展示） -->
+						<scroll-view v-if="images.length" style="width: 100%; height: 300rpx; white-space: nowrap; border-radius: 12rpx; overflow: hidden; margin-bottom: 24rpx;" scroll-x :show-scrollbar="false">
+							<image
+								v-for="(img, i) in images"
+								:key="i"
+								style="width: 100%; height: 300rpx; display: inline-block; background-color: #F1F3F4;"
+								:src="img"
+								mode="aspectFill"
+								@click="emit('preview', i)"
+							></image>
+						</scroll-view>
 
 						<!-- 标签页 -->
 						<view class="gm-tabs" style="margin-bottom: 24rpx;">
-							<view class="gm-tab gm-tab-active">概览</view>
-							<view class="gm-tab">简介</view>
+							<view class="gm-tab" :class="{ 'gm-tab-active': activeTab === 'overview' }" @click="activeTab = 'overview'">概览</view>
+							<view class="gm-tab" :class="{ 'gm-tab-active': activeTab === 'reviews' }" @click="activeTab = 'reviews'">评价</view>
 						</view>
 
-						<!-- 信息行 -->
-						<view v-if="spot.address" class="gm-flex" style="align-items: flex-start; margin-bottom: 20rpx;">
-							<app-icon icon="location" size="md" style="margin-right: 16rpx; flex-shrink: 0; margin-top: 2rpx;" />
-							<view style="flex: 1;">
-								<text class="gm-font-sm gm-text-secondary" style="display: block;">地址</text>
-								<text class="gm-font-md gm-text-primary" style="display: block; margin-top: 6rpx; line-height: 1.4; word-break: break-all;">{{ spot.address }}</text>
+						<!-- 概览 -->
+						<view v-if="activeTab === 'overview'">
+							<view v-if="spot.address" class="gm-flex" style="align-items: flex-start; margin-bottom: 20rpx;">
+								<app-icon icon="location" size="md" style="margin-right: 16rpx; flex-shrink: 0; margin-top: 2rpx;" />
+								<view style="flex: 1;">
+									<text class="gm-font-sm gm-text-secondary" style="display: block;">地址</text>
+									<text class="gm-font-md gm-text-primary" style="display: block; margin-top: 6rpx; line-height: 1.4; word-break: break-all;">{{ spot.address }}</text>
+								</view>
+							</view>
+
+							<view v-if="spot.remark" class="gm-flex" style="align-items: flex-start; margin-bottom: 20rpx;">
+								<app-icon icon="locationOn" size="md" style="margin-right: 16rpx; flex-shrink: 0; margin-top: 2rpx;" />
+								<view style="flex: 1;">
+									<text class="gm-font-sm gm-text-secondary" style="display: block;">备注</text>
+									<text class="gm-font-md gm-text-primary" style="display: block; margin-top: 6rpx; line-height: 1.4;">{{ spot.remark }}</text>
+								</view>
+							</view>
+
+							<view v-if="spot.contributor_name" class="gm-flex" style="align-items: center; margin-bottom: 20rpx; padding-bottom: 20rpx; border-bottom: 1rpx solid #E8EAED;">
+								<app-icon icon="photoCamera" size="md" style="margin-right: 16rpx; flex-shrink: 0;" />
+								<text class="gm-font-md gm-text-primary gm-flex-1">{{ spot.contributor_name }} 贡献</text>
+								<text style="font-size: 24rpx; color: #9AA0A6;">›</text>
+							</view>
+
+							<view v-if="spot.create_date" class="gm-flex" style="align-items: center; justify-content: space-between; margin-bottom: 20rpx;">
+								<text class="gm-font-sm gm-text-secondary">收录时间</text>
+								<text class="gm-font-sm gm-text-primary">{{ formatTime(spot.create_date) }}</text>
 							</view>
 						</view>
 
-						<view v-if="spot.remark" class="gm-flex" style="align-items: flex-start; margin-bottom: 20rpx;">
-							<app-icon icon="locationOn" size="md" style="margin-right: 16rpx; flex-shrink: 0; margin-top: 2rpx;" />
-							<view style="flex: 1;">
-								<text class="gm-font-sm gm-text-secondary" style="display: block;">备注</text>
-								<text class="gm-font-md gm-text-primary" style="display: block; margin-top: 6rpx; line-height: 1.4;">{{ spot.remark }}</text>
-							</view>
-						</view>
-
-						<view v-if="spot.contributor_name" class="gm-flex" style="align-items: center; margin-bottom: 20rpx; padding-bottom: 20rpx; border-bottom: 1rpx solid #E8EAED;">
-							<app-icon icon="photoCamera" size="md" style="margin-right: 16rpx; flex-shrink: 0;" />
-							<text class="gm-font-md gm-text-primary gm-flex-1">{{ spot.contributor_name }} 贡献</text>
-							<text style="font-size: 24rpx; color: #9AA0A6;">›</text>
-						</view>
-
-						<!-- 评价区域 -->
-						<view style="margin-top: 24rpx;">
-							<text class="gm-font-lg gm-font-bold gm-text-primary" style="display: block; margin-bottom: 20rpx;">评价</text>
-
+						<!-- 评价 -->
+						<view v-if="activeTab === 'reviews'">
 							<!-- 无评价提示 -->
 							<view v-if="!commentsLoading && !comments.length" style="text-align: center; padding: 40rpx 0;">
 								<text class="gm-text-secondary" style="display: block; margin-bottom: 20rpx;">还没有评价，来抢沙发</text>
@@ -112,6 +122,7 @@
 										<view v-else class="gm-avatar gm-avatar-sm gm-avatar-text" style="margin-right: 12rpx; font-size: 20rpx;">{{ commentAvatarText(c.nickname) }}</view>
 										<view style="flex: 1;">
 											<text class="gm-font-md gm-font-bold gm-text-primary">{{ c.nickname || '匿名用户' }}</text>
+											<text class="gm-font-sm gm-text-secondary" style="display: block; margin-top: 2rpx;">{{ formatTime(c.create_date) }}</text>
 										</view>
 										<view class="gm-stars gm-stars-sm">
 											<text v-for="n in 5" :key="n" class="gm-star" :class="{ 'gm-star-filled': n <= c.rating }">★</text>
@@ -170,12 +181,12 @@
 </template>
 
 <script setup>
-	import { ref } from 'vue'
+	import { ref, watch, onMounted } from 'vue'
 	import { ensureLogin, getToken, isAuthError, relogin } from '@/utils/auth.js'
 	import { getTypeLabel, getTypeColor, getTypeBg } from '@/utils/placeTypes.js'
 	import AppIcon from '@/components/AppIcon.vue'
 
-	const favoriteObj = uniCloud.importObject('favorite-spots', {
+	const spotsObj = uniCloud.importObject('spots', {
 		customUI: true
 	})
 
@@ -218,10 +229,105 @@
 		avatarMap: {
 			type: Object,
 			default: () => ({})
+		},
+		favorite: {
+			type: Boolean,
+			default: false
 		}
 	})
 
-	const emit = defineEmits(['close', 'preview', 'route', 'comment-added'])
+	const emit = defineEmits(['close', 'preview', 'route', 'comment-added', 'favorite', 'addImage'])
+
+	// 标签：overview | reviews
+	const activeTab = ref('overview')
+
+	// 面板高度：默认半屏，可上滑展开
+	// 范围与地图列表一致：最高到筛选栏下方；最低露出到操作按钮
+	const sheetHeight = ref(50)
+	const dragging = ref(false)
+	let dragStartY = 0
+	let dragStartHeight = 50
+	let winHeight = 0
+	let sheetMin = 40
+	let sheetMax = 90
+
+	function getWinHeight() {
+		if (winHeight) return winHeight
+		try {
+			const info = uni.getWindowInfo ? uni.getWindowInfo() : uni.getSystemInfoSync()
+			winHeight = info.windowHeight || 667
+		} catch (e) {
+			winHeight = 667
+		}
+		return winHeight
+	}
+
+	function measureRange() {
+		let info = {}
+		try {
+			info = uni.getWindowInfo ? uni.getWindowInfo() : uni.getSystemInfoSync()
+		} catch (e) {
+			info = {}
+		}
+		const winH = info.windowHeight || 667
+		const winW = info.windowWidth || 375
+		const rpxToPx = winW / 750
+		// 最高：到分类筛选栏下方（与列表一致）
+		const topbarPx = 210 * rpxToPx
+		const maxVh = Math.max(30, ((winH - topbarPx) / winH) * 100)
+		// 最低：露出到操作按钮
+		const minPx = 330 * rpxToPx
+		const minVh = Math.max(16, (minPx / winH) * 100)
+		sheetMax = Math.round(maxVh * 10) / 10
+		sheetMin = Math.min(Math.round(minVh * 10) / 10, sheetMax - 5)
+	}
+
+	function clampHeight(h) {
+		return Math.min(sheetMax, Math.max(sheetMin, h))
+	}
+
+	onMounted(measureRange)
+
+	function onDragStart(e) {
+		dragging.value = true
+		dragStartY = e.touches[0].clientY
+		dragStartHeight = sheetHeight.value
+		getWinHeight()
+	}
+
+	function onDragMove(e) {
+		if (!dragging.value) return
+		const dy = dragStartY - e.touches[0].clientY
+		const h = dragStartHeight + (dy / getWinHeight()) * 100
+		sheetHeight.value = clampHeight(h)
+	}
+
+	function onDragEnd() {
+		if (!dragging.value) return
+		dragging.value = false
+		const mid = (sheetMin + sheetMax) / 2
+		const candidates = [sheetMin, mid, sheetMax]
+		const h = sheetHeight.value
+		let nearest = candidates[0]
+		let best = Infinity
+		candidates.forEach(c => {
+			const d = Math.abs(c - h)
+			if (d < best) {
+				best = d
+				nearest = c
+			}
+		})
+		sheetHeight.value = Math.round(nearest * 10) / 10
+	}
+
+	watch(() => props.visible, (v) => {
+		if (v) {
+			measureRange()
+			sheetHeight.value = clampHeight(50)
+			activeTab.value = 'overview'
+			dragging.value = false
+		}
+	})
 
 	// 写评价
 	const composerVisible = ref(false)
@@ -263,6 +369,35 @@
 			5: '很棒'
 		}
 		return map[v] || ''
+	}
+
+	// 评分占比（用于半星裁剪）
+	function starPercent(avg) {
+		const v = Number(avg) || 0
+		return Math.max(0, Math.min(100, (v / 5) * 100)) + '%'
+	}
+
+	// 数量千分位
+	function formatCount(n) {
+		return String(Number(n) || 0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+	}
+
+	// 时间格式化（相对时间 / 日期）
+	function formatTime(ts) {
+		if (!ts) return ''
+		const d = new Date(Number(ts))
+		const diff = Date.now() - d.getTime()
+		const MIN = 60000
+		const HOUR = 3600000
+		const DAY = 86400000
+		if (diff < MIN) return '刚刚'
+		if (diff < HOUR) return Math.floor(diff / MIN) + '分钟前'
+		if (diff < DAY) return Math.floor(diff / HOUR) + '小时前'
+		if (diff < 7 * DAY) return Math.floor(diff / DAY) + '天前'
+		const y = d.getFullYear()
+		const m = d.getMonth() + 1
+		const day = d.getDate()
+		return y + '-' + (m < 10 ? '0' + m : m) + '-' + (day < 10 ? '0' + day : day)
 	}
 
 	function openComposer() {
@@ -330,7 +465,7 @@
 		}
 	}
 
-	// 反馈（纠错）
+	// 反馈（更新）
 	function openFeedback() {
 		feedbackText.value = ''
 		feedbackVisible.value = true
@@ -361,7 +496,7 @@
 			return
 		}
 		const payload = {
-			report_type: 'correction',
+			report_type: 'update',
 			target_id: spot._id,
 			name: spot.name,
 			type: spot.type,
@@ -373,11 +508,11 @@
 		submittingFeedback.value = true
 		try {
 			try {
-				await favoriteObj.submit(payload, getToken())
+				await spotsObj.submit(payload, getToken())
 			} catch (err) {
 				if (!isAuthError(err)) throw err
 				await relogin()
-				await favoriteObj.submit(payload, getToken())
+				await spotsObj.submit(payload, getToken())
 			}
 			feedbackVisible.value = false
 			uni.showToast({
@@ -398,9 +533,60 @@
 <style lang="scss" scoped>
 	.spot-detail-sheet {
 		width: 100%;
-		height: 90vh;
 		display: flex;
 		flex-direction: column;
 		animation: gm-slide-up 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	/* 详情背景不模糊、不变灰，保持原样 */
+	.gm-detail-overlay {
+		background-color: transparent;
+		backdrop-filter: none;
+		-webkit-backdrop-filter: none;
+	}
+
+	/* 评分（与列表保持一致） */
+	.gm-place-rating-num {
+		flex-shrink: 0;
+		font-size: 22rpx;
+		font-weight: 600;
+		color: #202124;
+		margin-right: 6rpx;
+	}
+
+	.gm-place-rating-stars {
+		position: relative;
+		display: inline-block;
+		flex-shrink: 0;
+		font-size: 20rpx;
+		line-height: 1;
+		letter-spacing: 2rpx;
+		margin-right: 6rpx;
+	}
+
+	.gm-place-rating-stars-bg {
+		color: #DADCE0;
+	}
+
+	.gm-place-rating-stars-fill {
+		position: absolute;
+		top: 0;
+		left: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		color: #FBBC04;
+	}
+
+	.gm-place-rating-count {
+		flex-shrink: 0;
+		font-size: 22rpx;
+		color: #5F6368;
+	}
+</style>
+
+<style lang="scss">
+	/* 自定义组件内的 button 不受全局样式隔离影响，需在本组件内单独去除默认 ::after 边框 */
+	button::after {
+		border: none;
 	}
 </style>

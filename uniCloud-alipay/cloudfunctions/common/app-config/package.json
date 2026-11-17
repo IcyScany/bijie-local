@@ -1,0 +1,6 @@
+{
+  "name": "app-config",
+  "version": "1.0.0",
+  "description": "统一配置（微信 AppID/Secret、Token 密钥等）",
+  "main": "index.js"
+}

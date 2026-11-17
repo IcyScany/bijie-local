@@ -28,7 +28,7 @@
 			<view class="menu-card" @click="goContribute">
 				<view class="menu-icon contribute">📝</view>
 				<view class="menu-body">
-					<text class="menu-title">我来补充 / 纠错</text>
+					<text class="menu-title">我来补充 / 更新</text>
 					<text class="menu-desc">提交新地点或反馈错误，共建本地地图</text>
 				</view>
 				<text class="menu-arrow">›</text>
@@ -234,7 +234,7 @@
 		}
 		if (isAdmin()) {
 			uni.navigateTo({
-				url: '/pages/admin/favorites'
+				url: '/pages/admin/review'
 			})
 			return
 		}
@@ -244,7 +244,7 @@
 		})
 	}
 
-	// 打开发布/纠错页面
+	// 打开发布/更新页面
 	function goContribute() {
 		uni.navigateTo({
 			url: '/pages/contribute/contribute'

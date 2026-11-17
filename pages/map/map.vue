@@ -1,5 +1,5 @@
 <template>
-	<view class="gm-page">
+	<view class="gm-page" :style="pageStyle">
 		<!-- 地图 + 列表 -->
 		<MapExplorer
 			:center="center"
@@ -12,6 +12,7 @@
 			:image-map="imageMap"
 			:category-label="categoryLabel"
 			:user-location="userLocation"
+			:hide-sheet="detailVisible"
 			v-model:sort-by="sortBy"
 			:disabled="detailVisible"
 			@select="focusSpot"
@@ -35,29 +36,36 @@
 			:comments-loading="commentsLoading"
 			:has-coord="hasCoord"
 			:avatar-map="commentAvatarMap"
+			:favorite="isFavorite"
 			@close="closeDetail"
 			@preview="previewImage"
 			@route="goHere"
 			@comment-added="onCommentAdded"
+			@favorite="toggleFavorite"
+			@add-image="chooseSpotImages"
 		/>
 	</view>
 </template>
 
 <script setup>
-	import { ref, computed } from 'vue'
+	import { ref, computed, watch } from 'vue'
 	import { onShow } from '@dcloudio/uni-app'
 	import { ensureLogin, getUserInfo, getToken, isAuthError, relogin } from '@/utils/auth.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
-	import { getMapCategories } from '@/utils/placeTypes.js'
+	import { getMapCategories, getTypeIcon } from '@/utils/placeTypes.js'
 	import MapExplorer from './components/MapExplorer.vue'
 	import MapSearchBar from './components/MapSearchBar.vue'
 	import SpotDetailSheet from './components/SpotDetailSheet.vue'
 
-	const favoriteObj = uniCloud.importObject('favorite-spots', {
+	const spotsObj = uniCloud.importObject('spots', {
 		customUI: true
 	})
 
 	const commentObj = uniCloud.importObject('spot-comments', {
+		customUI: true
+	})
+
+	const spotFavObj = uniCloud.importObject('spot-favorites', {
 		customUI: true
 	})
 
@@ -70,14 +78,18 @@
 	const category = ref('all')
 	const searchKeyword = ref('')
 
+	// 容器高度取窗口可视高度，避免 100vh 偏差在底部露出地图
+	const pageHeight = ref(0)
+	const pageStyle = computed(() => pageHeight.value ? { height: pageHeight.value + 'px' } : {})
+
 	// 当前分类标题
 	const categoryLabel = computed(() => {
 		const found = categories.find(c => c.value === category.value)
 		return found ? found.label : '全部'
 	})
 
-	// 列表排序：default | rating | distance
-	const sortBy = ref('default')
+	// 列表排序：default | rating | distance（默认按距离）
+	const sortBy = ref('distance')
 	// 用户当前位置（用于距离排序/展示）
 	const userLocation = ref(null)
 
@@ -91,6 +103,71 @@
 	const loadingMore = ref(false)
 	const detailVisible = ref(false)
 	const currentSpot = ref({})
+	const selectedMarkerIndex = ref(-1)
+
+	// 收藏（云端存储）
+	const favoriteIds = ref([])
+	const isFavorite = computed(() => {
+		const spot = currentSpot.value
+		return !!(spot && spot._id && favoriteIds.value.indexOf(spot._id) !== -1)
+	})
+
+	async function loadFavorites() {
+		try {
+			await ensureLogin()
+			const res = await spotFavObj.ids(getToken())
+			favoriteIds.value = (res && res.data) || []
+		} catch (e) {
+			favoriteIds.value = []
+		}
+	}
+
+	async function toggleFavorite() {
+		const spot = currentSpot.value
+		if (!spot || !spot._id) return
+		const id = spot._id
+		try {
+			await ensureLogin()
+		} catch (e) {
+			uni.showToast({
+				title: (e && e.message) || '登录失败',
+				icon: 'none'
+			})
+			return
+		}
+		try {
+			let res
+			try {
+				res = await spotFavObj.toggle(id, getToken())
+			} catch (err) {
+				if (!isAuthError(err)) throw err
+				await relogin()
+				res = await spotFavObj.toggle(id, getToken())
+			}
+			const filled = !!(res && res.data && res.data.filled)
+			const list = favoriteIds.value.slice()
+			const idx = list.indexOf(id)
+			if (filled) {
+				if (idx === -1) list.unshift(id)
+				uni.showToast({
+					title: '已收藏',
+					icon: 'success'
+				})
+			} else {
+				if (idx !== -1) list.splice(idx, 1)
+				uni.showToast({
+					title: '已取消收藏',
+					icon: 'none'
+				})
+			}
+			favoriteIds.value = list
+		} catch (err) {
+			uni.showToast({
+				title: (err && (err.errMsg || err.message)) || '操作失败',
+				icon: 'none'
+			})
+		}
+	}
 	const spots = ref([])
 	const imageMap = ref({})
 	const pageSize = 50
@@ -110,51 +187,24 @@
 
 	const filteredSpots = computed(() => {
 		const kw = searchKeyword.value.trim().toLowerCase()
-		const list = spots.value.filter(item => {
+		return spots.value.filter(item => {
 			if (category.value !== 'all' && item.type !== category.value) return false
 			if (!kw) return true
 			const text = `${item.name || ''} ${item.address || ''} ${item.remark || ''}`.toLowerCase()
 			return text.indexOf(kw) !== -1
 		})
-		if (sortBy.value === 'rating') {
-			return list.slice().sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0))
-		}
-		if (sortBy.value === 'distance') {
-			return list.slice().sort((a, b) => {
-				const da = distanceOf(a)
-				const db = distanceOf(b)
-				if (da == null && db == null) return 0
-				if (da == null) return 1
-				if (db == null) return -1
-				return da - db
-			})
-		}
-		return list
 	})
 
-	// 两点球面距离（米）
-	function haversine(lat1, lon1, lat2, lon2) {
-		const R = 6371000
-		const toRad = d => (d * Math.PI) / 180
-		const dLat = toRad(lat2 - lat1)
-		const dLon = toRad(lon2 - lon1)
-		const a = Math.sin(dLat / 2) ** 2 +
-			Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
-		return 2 * R * Math.asin(Math.sqrt(a))
-	}
-
-	// 地点到当前位置的距离（米），无定位或无坐标返回 null
-	function distanceOf(spot) {
-		const loc = userLocation.value
-		if (!loc || !spot) return null
-		const lat = Number(spot.latitude)
-		const lon = Number(spot.longitude)
-		if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
-		return haversine(loc.latitude, loc.longitude, lat, lon)
-	}
-
-	// 获取用户当前位置
+	// 获取用户当前位置：定位结束后统一拉取一次数据（距离排序依赖定位）
 	function fetchUserLocation() {
+		let settled = false
+		const finish = () => {
+			if (settled) return
+			settled = true
+			loadSpots()
+		}
+		// 兜底：定位长期无回调时仍能加载一次
+		const timer = setTimeout(finish, 8000)
 		uni.getLocation({
 			type: 'gcj02',
 			success: (res) => {
@@ -162,9 +212,13 @@
 					latitude: res.latitude,
 					longitude: res.longitude
 				}
+				clearTimeout(timer)
+				finish()
 			},
 			fail: () => {
 				userLocation.value = null
+				clearTimeout(timer)
+				finish()
 			}
 		})
 	}
@@ -188,13 +242,19 @@
 			if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
 				return
 			}
+			const active = index === selectedMarkerIndex.value
 			result.push({
 				id: index,
 				longitude,
 				latitude,
 				title: spot.name,
-				width: 26,
-				height: 26,
+				iconPath: `/static/markers/${getTypeIcon(spot.type)}.png`,
+				width: active ? 48 : 36,
+				height: active ? 48 : 36,
+				anchor: {
+					x: 0.5,
+					y: 0.92
+				},
 				callout: {
 					content: spot.name,
 					color: '#1f2329',
@@ -212,9 +272,18 @@
 	})
 
 	onShow(() => {
+		try {
+			const info = uni.getWindowInfo ? uni.getWindowInfo() : uni.getSystemInfoSync()
+			pageHeight.value = info.windowHeight || 0
+		} catch (e) {}
+		loadFavorites()
 		fetchUserLocation()
-		loadSpots()
 		checkProfile()
+	})
+
+	// 排序变化时按新排序重新拉取（后端排序）
+	watch(sortBy, () => {
+		loadSpots()
 	})
 
 	// 首次进入提示完善头像昵称（仅提示一次）
@@ -296,11 +365,15 @@
 	}
 
 	function fetchSpots(pageNo) {
-		return favoriteObj.getList({
+		const loc = userLocation.value
+		return spotsObj.getList({
 			status: 'approved',
 			withRating: true,
 			page: pageNo,
-			pageSize
+			pageSize,
+			sort: sortBy.value,
+			latitude: loc ? loc.latitude : undefined,
+			longitude: loc ? loc.longitude : undefined
 		})
 	}
 
@@ -374,6 +447,7 @@
 			resolveSpotImages([spot])
 		}
 		currentSpot.value = spot
+		selectedMarkerIndex.value = index
 		detailVisible.value = true
 		comments.value = []
 		commentsTotal.value = 0
@@ -384,6 +458,7 @@
 
 	function closeDetail() {
 		detailVisible.value = false
+		selectedMarkerIndex.value = -1
 	}
 
 	function previewImage(index) {
@@ -494,11 +569,11 @@
 			}
 			let res
 			try {
-				res = await favoriteObj.addImages(spotId, ids, getToken())
+				res = await spotsObj.addImages(spotId, ids, getToken())
 			} catch (err) {
 				if (!isAuthError(err)) throw err
 				await relogin()
-				res = await favoriteObj.addImages(spotId, ids, getToken())
+				res = await spotsObj.addImages(spotId, ids, getToken())
 			}
 			const merged = (res && res.images) || ids
 			if (currentSpot.value && currentSpot.value._id === spotId) {

@@ -42,12 +42,46 @@
 			"bsonType": "string",
 			"title": "地点名称"
 		},
+		"report_type": {
+			"bsonType": "string",
+			"title": "贡献类型",
+			"enum": [{
+				"value": "new",
+				"text": "新增地点"
+			}, {
+				"value": "update",
+				"text": "更新反馈"
+			}]
+		},
+		"report_reason": {
+			"bsonType": "string",
+			"title": "贡献说明"
+		},
+		"status": {
+			"bsonType": "string",
+			"title": "审核状态",
+			"enum": [{
+				"value": "pending",
+				"text": "待审核"
+			}, {
+				"value": "approved",
+				"text": "已通过"
+			}, {
+				"value": "rejected",
+				"text": "已驳回"
+			}],
+			"defaultValue": "approved"
+		},
 		"create_date": {
 			"bsonType": "timestamp",
 			"title": "贡献时间",
 			"forceDefaultValue": {
 				"$env": "now"
 			}
+		},
+		"update_date": {
+			"bsonType": "timestamp",
+			"title": "更新时间"
 		}
 	}
 }

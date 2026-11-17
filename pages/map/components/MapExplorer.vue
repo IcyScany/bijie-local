@@ -20,7 +20,7 @@
 		<view
 			class="gm-bottom-sheet-wrapper"
 			:class="{ 'gm-dragging': isDragging }"
-			:style="{ height: bottomSheetHeight + 'vh' }"
+			:style="{ height: bottomSheetHeight + 'vh', display: hideSheet ? 'none' : 'flex' }"
 			@touchstart="onSheetTouchStart"
 			@touchend="onSheetTouchEnd"
 			@touchcancel="onSheetTouchEnd"
@@ -92,7 +92,7 @@
 								<!-- 右侧：图片区 -->
 								<view class="gm-place-card-image">
 									<image
-										:src="thumbUrl(spot) || '/static/img/default.png'"
+										:src="thumbUrl(spot) || '/static/img/default_spot.png'"
 										mode="aspectFill"
 										lazy-load
 										style="width: 100%; height: 100%; border-radius: 12rpx;"
@@ -103,7 +103,7 @@
 							<!-- 最新一条评价（占满卡片宽度） -->
 							<view v-if="spot.latest_comment && spot.latest_comment.content" class="gm-place-comment">
 								<view class="gm-place-comment-avatar">
-									<app-icon icon="person" width="30rpx" :custom-style="{ filter: 'brightness(0) invert(1)' }" />
+									<image src="/static/img/default_user.png" mode="aspectFill" style="width: 100%; height: 100%; border-radius: 50%;" />
 								</view>
 								<text class="gm-place-comment-text">"{{ spot.latest_comment.content }}"</text>
 							</view>
@@ -125,11 +125,10 @@
 </template>
 
 <script setup>
-	import { ref, computed, onMounted } from 'vue'
+	import { ref, computed, onMounted, watch, nextTick, getCurrentInstance } from 'vue'
 	import { getTypeLabel } from '@/utils/placeTypes.js'
 	import AppSkeleton from '@/components/AppSkeleton.vue'
 	import AppLoading from '@/components/AppLoading.vue'
-	import AppIcon from '@/components/AppIcon.vue'
 
 	const props = defineProps({
 		center: {
@@ -168,6 +167,10 @@
 			type: String,
 			default: '全部'
 		},
+		hideSheet: {
+			type: Boolean,
+			default: false
+		},
 		sortBy: {
 			type: String,
 			default: 'default'
@@ -185,6 +188,8 @@
 
 	const emit = defineEmits(['select', 'loadmore', 'update:sortBy'])
 
+	const instance = getCurrentInstance()
+
 	// 底部面板拖动功能
 	const bottomSheetHeight = ref(50)
 	const dragStartY = ref(0)
@@ -199,7 +204,7 @@
 		bottomSheetHeight.value = Math.min(sheetRange.max, Math.max(sheetRange.min, bottomSheetHeight.value))
 	})
 
-	// 估算可拖范围：顶部为搜索+分类高度，底部为一条数据高度
+	// 计算可拖范围：最高不超过「筛选栏下方」，且不超过「列表内容本身高度」
 	function measureSheetRange() {
 		let info = {}
 		try {
@@ -212,13 +217,32 @@
 		const rpxToPx = winW / 750
 		// 顶部搜索框 + 分类筛选（含内边距）估算高度
 		const topbarPx = 210 * rpxToPx
-		const maxVh = Math.max(30, ((winH - topbarPx) / winH) * 100)
+		const topbarMaxVh = Math.max(30, ((winH - topbarPx) / winH) * 100)
 		// 只露出「把手 + 分类标题」的高度
 		const headerPx = 110 * rpxToPx
 		const minVh = Math.max(8, (headerPx / winH) * 100)
-		sheetRange.max = Math.round(maxVh * 10) / 10
+		sheetRange.max = Math.round(topbarMaxVh * 10) / 10
 		sheetRange.min = Math.min(Math.round(minVh * 10) / 10, sheetRange.max - 5)
+
+		// 上限再受「列表内容高度」限制：拖动不超过列表本身高度
+		if (!instance) return
+		uni.createSelectorQuery().in(instance.proxy)
+			.select('.gm-place-list')
+			.boundingClientRect(rect => {
+				if (rect && rect.height) {
+					const contentVh = ((rect.height + headerPx) / winH) * 100
+					const capped = Math.max(sheetRange.min + 5, Math.min(sheetRange.max, contentVh))
+					sheetRange.max = Math.round(capped * 10) / 10
+					bottomSheetHeight.value = Math.min(sheetRange.max, Math.max(sheetRange.min, bottomSheetHeight.value))
+				}
+			})
+			.exec()
 	}
+
+	// 列表数据变化后重新测量内容高度
+	watch(() => props.list.length, () => {
+		nextTick(() => measureSheetRange())
+	})
 
 	// App 端 map 是原生组件，层级最高，覆盖其上的列表滑动时手势会穿透到地图
 	// 手指落在面板内时关闭地图手势，避免带动地图
@@ -534,13 +558,13 @@
 		line-height: 1;
 		font-size: 0;
 		flex-shrink: 0;
-		margin-right: 6rpx;
+		margin-right: 8rpx;
 	}
 
 	.gm-place-comment-text {
 		flex: 1;
 		font-size: 26rpx;
-		color: #3C4043;
+		color: #5F6368;
 		line-height: 1.5;
 		display: -webkit-box;
 		-webkit-box-orient: vertical;

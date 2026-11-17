@@ -13,6 +13,8 @@ export const ICONS = {
 	photoCamera: '/static/icons/photo_camera.svg',
 	locationOn: '/static/icons/location_on.svg',
 	person: '/static/icons/person.svg',
+	bookmarkStar: '/static/icons/bookmark_star.svg',
+	rateReview: '/static/icons/rate_review.svg',
 	
 	// 分类图标
 	restaurant: '/static/icons/restaurant.svg',

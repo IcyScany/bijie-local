@@ -10,7 +10,7 @@ page {
 }
 
 button::after {
-	border: none;
+	border: none !important;
 }
 
 /* Google Material Button - 标准圆角 */
@@ -19,6 +19,7 @@ button {
 	transition: all $duration-fast cubic-bezier(0.4, 0, 0.2, 1);
 	font-weight: 500;
 	letter-spacing: 0.25px;
+	outline: none;
 
 	&:active {
 		opacity: 0.92;

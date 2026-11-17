@@ -15,7 +15,6 @@
 					@focus="onFocus"
 					@confirm="onConfirm"
 				/>
-				<app-icon icon="photoCamera" size="md" style="margin-left: 12rpx;" />
 				<app-icon icon="search" size="lg" style="margin-left: 12rpx;" />
 			</view>
 

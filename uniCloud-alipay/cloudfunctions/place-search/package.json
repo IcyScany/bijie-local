@@ -1,6 +1,8 @@
 {
   "name": "place-search",
-  "dependencies": {},
+  "dependencies": {
+    "app-config": "file:../common/app-config"
+  },
   "extensions": {
     "uni-cloud-jql": {}
   }

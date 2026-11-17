@@ -10,15 +10,9 @@ let loginPromise = null
 let verifyPromise = null
 let lastCheckAt = 0
 
-// 获取当前运行平台标识
+// 获取当前运行平台标识（微信小程序为 'mp-weixin'）
 function getPlatform() {
 	try {
-		// 尝试从AppBaseInfo获取，这是新推荐的API
-		if (typeof wx !== 'undefined' && wx.getAppBaseInfo) {
-			const appInfo = wx.getAppBaseInfo()
-			return appInfo.platform || ''
-		}
-		// 降级方案：使用getSystemInfoSync（如果仍然需要支持较旧版本）
 		const sysInfo = uni.getSystemInfoSync()
 		return sysInfo.uniPlatform || ''
 	} catch (e) {

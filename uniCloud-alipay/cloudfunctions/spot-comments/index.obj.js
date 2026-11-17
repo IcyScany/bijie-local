@@ -2,38 +2,13 @@
 // 地点评价：列表查询、评分汇总、新增评价、删除评价
 'use strict';
 
-const crypto = require('crypto')
 const db = uniCloud.database()
 const dbCmd = db.command
 const collection = db.collection('spot-comments')
 
-const TOKEN_SECRET = 'bijie-local-token-secret-change-me'
+const { parseToken, isWhitelisted, getUserByOpenid } = require('cloud-auth')
 
-function parseToken(token) {
-	if (!token || typeof token !== 'string') {
-		return null
-	}
-	const parts = token.split('.')
-	if (parts.length !== 2) {
-		return null
-	}
-	const base = parts[0]
-	const sig = parts[1]
-	const expect = crypto.createHmac('sha256', TOKEN_SECRET).update(base).digest('hex')
-	if (expect !== sig) {
-		return null
-	}
-	try {
-		const payload = JSON.parse(Buffer.from(base, 'base64').toString('utf8'))
-		if (!payload.openid || !payload.expire || payload.expire < Date.now()) {
-			return null
-		}
-		return payload
-	} catch (e) {
-		return null
-	}
-}
-
+// 评分取整并限制在 1~5，非法值返回 0
 function clampRating(value) {
 	const n = Math.round(Number(value))
 	if (!Number.isFinite(n)) {
@@ -44,21 +19,8 @@ function clampRating(value) {
 	return n
 }
 
-async function isWhitelisted(openid) {
-	const res = await db.collection('admin-whitelist').where({
-		openid
-	}).limit(1).get()
-	return res.data.length > 0
-}
-
-async function getUser(openid) {
-	const res = await db.collection('users').where({
-		openid
-	}).limit(1).get()
-	return res.data.length ? res.data[0] : null
-}
-
 module.exports = {
+	// 通用预处理器
 	_before: function() {},
 
 	// 某地点的评价列表 + 评分汇总
@@ -165,7 +127,7 @@ module.exports = {
 			throw new Error('请输入评价内容')
 		}
 
-		const user = await getUser(payload.openid)
+		const user = await getUserByOpenid(payload.openid)
 		const nickname = (user && user.nickname) || ('用户' + String(payload.openid).slice(-4))
 		const avatar = (user && user.avatar) || ''
 		const now = Date.now()

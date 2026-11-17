@@ -26,4 +26,6 @@
 	@import "./styles/google-maps.scss";
 	/* 导入 Tabbar 样式 */
 	@import "./styles/tabbar.scss";
+	/* 导入全局样式 */
+	@import "./styles/global.scss";
 </style>

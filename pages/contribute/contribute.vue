@@ -2,7 +2,7 @@
 	<view class="page">
 		<view class="switch">
 			<view class="switch-item" :class="{ active: reportType === 'new' }" @click="switchReportType('new')">补充新地点</view>
-			<view class="switch-item" :class="{ active: reportType === 'correction' }" @click="switchReportType('correction')">纠错反馈</view>
+			<view class="switch-item" :class="{ active: reportType === 'update' }" @click="switchReportType('update')">更新反馈</view>
 		</view>
 
 		<scroll-view class="form-scroll" scroll-y>
@@ -42,14 +42,14 @@
 
 				<view v-else>
 					<view class="field">
-						<text class="label">要纠错的地点 *</text>
+						<text class="label">要更新的地点 *</text>
 						<picker :range="spotNames" @change="onTargetChange">
 							<view class="picker">{{ targetIndex > -1 ? spotNames[targetIndex] : '请选择地点' }}</view>
 						</picker>
 					</view>
 
 					<view class="field">
-						<text class="label">纠错说明 *</text>
+						<text class="label">更新说明 *</text>
 						<textarea class="textarea" v-model="form.report_reason" placeholder="如：摊位已搬迁到对面" />
 					</view>
 				</view>
@@ -90,7 +90,7 @@
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
 	import { PLACE_TYPES, getTypeLabel } from '@/utils/placeTypes.js'
 
-	const favoriteObj = uniCloud.importObject('favorite-spots', {
+	const spotsObj = uniCloud.importObject('spots', {
 		customUI: true
 	})
 
@@ -151,10 +151,10 @@
 		return getTypeLabel(type)
 	}
 
-	// 加载已通过审核的地点，供纠错时选择
+	// 加载已通过审核的地点，供更新时选择
 	async function loadSpots() {
 		try {
-			const res = await favoriteObj.getList({
+			const res = await spotsObj.getList({
 				status: 'approved',
 				page: 1,
 				pageSize: 200
@@ -256,7 +256,7 @@
 		form.value.images.splice(index, 1)
 	}
 
-	// 提交补充或纠错信息，进入待审核
+	// 提交补充或更新信息，进入待审核
 	async function submit() {
 		const payload = {
 			report_type: reportType.value,
@@ -295,14 +295,14 @@
 		} else {
 			if (targetIndex.value < 0) {
 				uni.showToast({
-					title: '请选择要纠错的地点',
+					title: '请选择要更新的地点',
 					icon: 'none'
 				})
 				return
 			}
 			if (!form.value.report_reason.trim()) {
 				uni.showToast({
-					title: '请填写纠错说明',
+					title: '请填写更新说明',
 					icon: 'none'
 				})
 				return
@@ -319,7 +319,7 @@
 
 		submitting.value = true
 		try {
-			await favoriteObj.submit(payload, getToken())
+			await spotsObj.submit(payload, getToken())
 			uni.showToast({
 				title: '已提交，等待审核',
 				icon: 'success'
