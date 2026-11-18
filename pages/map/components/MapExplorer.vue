@@ -295,7 +295,7 @@
 	}
 
 	// 放大地图到一定级别时，marker 常显名称
-	const NAME_MIN_SCALE = 15
+	const NAME_MIN_SCALE = 16
 	const currentScale = ref(props.scale || 13)
 	const showMarkerName = computed(() => currentScale.value >= NAME_MIN_SCALE)
 

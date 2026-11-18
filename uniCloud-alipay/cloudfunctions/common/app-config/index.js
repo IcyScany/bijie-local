@@ -1,7 +1,8 @@
 'use strict'
 
-// 统一配置：优先读取环境变量，缺省时回退到内置默认值
+// 统一配置：优先读取环境变量，需在unicloud控制台配置对应环境变量
 // 各云函数/云对象通过 require('app-config') 引用，避免配置分散
+
 module.exports = {
 	WX_APPID: process.env.WX_APPID || 'wxbcdf8a5b47b37852',
 	WX_SECRET: process.env.WX_SECRET || '8ec410bc985359e8da8e45051bd4e8b2',
