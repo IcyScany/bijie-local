@@ -6,9 +6,9 @@ const collection = db.collection('spots')
 const { parseToken, requireAdmin, resolveContributorName } = require('cloud-auth')
 const { TYPE_LIST, REPORT_TYPE_LIST } = require('./constants')
 const { buildUpdateData, normalizeImages } = require('./helpers')
-const { recordContribution, syncPendingContributions } = require('./contributions')
+const { recordContribution, syncSpotContributions, revokeSpotContributions } = require('./contributions')
 
-// 为已通过审核的地点补充图片（登录用户即可）
+// 用户为已通过审核的地点补充图片：生成待审核投稿（审核通过后再合并到目标地点）
 async function addImages(id, images, token) {
 	const payload = parseToken(token)
 	if (!payload) {
@@ -21,25 +21,45 @@ async function addImages(id, images, token) {
 	if (!list.length) {
 		throw new Error('请选择图片')
 	}
+	if (list.length > 5) {
+		throw new Error('一次最多上传 5 张')
+	}
 	const docRes = await collection.doc(id).get()
 	if (!docRes.data || !docRes.data.length) {
 		throw new Error('地点不存在')
 	}
 	const spot = docRes.data[0]
-	const merged = Array.isArray(spot.images) ? spot.images.slice() : []
-	list.forEach(img => {
-		if (merged.indexOf(img) === -1 && merged.length < 9) {
-			merged.push(img)
-		}
+	const now = Date.now()
+	const contributorName = await resolveContributorName(payload.openid)
+
+	// 复用 spots 记录作为待审核投稿：report_type=image，target_id 指向目标地点
+	const addRes = await collection.add({
+		name: spot.name || '图片补充',
+		type: spot.type || 'other',
+		address: spot.address || '',
+		longitude: spot.longitude,
+		latitude: spot.latitude,
+		images: list,
+		status: 'pending',
+		source: 'user',
+		report_type: 'image',
+		target_id: id,
+		contributor_openid: payload.openid,
+		contributor_name: contributorName,
+		create_date: now,
+		update_date: now
 	})
-	await collection.doc(id).update({
-		images: merged,
-		updater_openid: payload.openid,
-		updater_name: await resolveContributorName(payload.openid),
-		update_date: Date.now()
-	})
+
+	await recordContribution(payload.openid, 'image', {
+		spotId: addRes.id,
+		spotName: spot.name || '',
+		reportType: 'image',
+		imageCount: list.length
+	}, 'pending')
+
 	return {
-		images: merged
+		id: addRes.id,
+		pending: true
 	}
 }
 
@@ -104,10 +124,7 @@ async function update(id, data = {}, token) {
 	updateData.update_date = Date.now()
 
 	const res = await collection.doc(id).update(updateData)
-	await recordContribution(openid, 'update', {
-		spotId: id,
-		spotName: updateData.name || ''
-	}, 'approved')
+	// 管理员在地点管理中直接修改，不计入个人贡献
 	return {
 		updated: res.updated
 	}
@@ -120,6 +137,8 @@ async function remove(id, token) {
 		throw new Error('缺少地点ID')
 	}
 	const ids = Array.isArray(id) ? id : [id]
+	// 删除地点前撤销相关已计分贡献
+	await revokeSpotContributions(ids)
 	const res = await collection.where({
 		_id: dbCmd.in(ids)
 	}).remove()
@@ -184,13 +203,13 @@ async function submit(data = {}, token) {
 	}
 }
 
-// 管理员审核：通过或驳回
-async function review(id, status, token) {
+// 管理员审核：通过 / 驳回（可带原因）/ 撤回驳回（pending）
+async function review(id, status, token, reason) {
 	await requireAdmin(token)
 	if (!id) {
 		throw new Error('缺少地点ID')
 	}
-	if (!['approved', 'rejected'].includes(status)) {
+	if (!['approved', 'rejected', 'pending'].includes(status)) {
 		throw new Error('审核状态不合法')
 	}
 	const docRes = await collection.doc(id).get()
@@ -198,11 +217,49 @@ async function review(id, status, token) {
 	if (!spot) {
 		throw new Error('地点不存在')
 	}
+
+	// 图片补充投稿：通过时把图片合并到目标地点并删除该投稿记录
+	if (spot.report_type === 'image' && spot.target_id) {
+		if (status === 'approved') {
+			const targetRes = await collection.doc(spot.target_id).get()
+			const target = (targetRes.data && targetRes.data[0]) || null
+			if (target) {
+				const merged = Array.isArray(target.images) ? target.images.slice() : []
+				;(spot.images || []).forEach(img => {
+					if (img && merged.indexOf(img) === -1 && merged.length < 9) {
+						merged.push(img)
+					}
+				})
+				await collection.doc(spot.target_id).update({
+					images: merged,
+					update_date: Date.now()
+				})
+			}
+			// 计入该条投稿积分，随后移除投稿记录
+			await syncSpotContributions(id, 'approved')
+			await collection.doc(id).remove()
+			return {
+				updated: 1
+			}
+		}
+		const imgRes = await collection.doc(id).update({
+			status,
+			update_date: Date.now(),
+			reject_reason: status === 'rejected' ? String(reason || '').trim() : ''
+		})
+		await syncSpotContributions(id, status)
+		return {
+			updated: imgRes.updated
+		}
+	}
+
 	const res = await collection.doc(id).update({
 		status,
-		update_date: Date.now()
+		update_date: Date.now(),
+		// 驳回时记录原因；通过/撤回时清空
+		reject_reason: status === 'rejected' ? String(reason || '').trim() : ''
 	})
-	await syncPendingContributions(id, status)
+	await syncSpotContributions(id, status)
 	return {
 		updated: res.updated
 	}

@@ -4,7 +4,7 @@ const db = uniCloud.database()
 const dbCmd = db.command
 const collection = db.collection('spots')
 const { parseToken } = require('cloud-auth')
-const { TYPE_LIST, STATUS_LIST, SOURCE_LIST } = require('./constants')
+const { TYPE_LIST, TYPE_LABELS, STATUS_LIST, SOURCE_LIST } = require('./constants')
 const { attachRating, distanceMeters } = require('./helpers')
 
 // 分页查询地点列表，支持关键词、类型、审核状态、来源筛选与排序（rating/distance）
@@ -19,26 +19,39 @@ async function getList(params = {}) {
 	const page = Math.max(1, parseInt(params.page, 10) || 1)
 	const pageSize = Math.min(100, Math.max(1, parseInt(params.pageSize, 10) || 20))
 
-	const where = {}
+	// 逐条收集条件后用 and 组合，避免或条件（$or）与字段级条件互相覆盖
+	const conditions = []
 	if (type && TYPE_LIST.includes(type)) {
-		where.type = type
+		conditions.push({ type })
 	}
 	if (status && STATUS_LIST.includes(status)) {
 		if (status === 'approved') {
-			where.status = dbCmd.or(dbCmd.exists(false), dbCmd.eq('approved'))
+			conditions.push(dbCmd.or({ status: dbCmd.exists(false) }, { status: 'approved' }))
 		} else {
-			where.status = status
+			conditions.push({ status })
 		}
 	}
 	if (source && SOURCE_LIST.includes(source)) {
-		where.source = source
+		conditions.push({ source })
 	}
 	if (keyword) {
-		where.name = db.RegExp({
+		const reg = db.RegExp({
 			regexp: keyword,
 			options: 'i'
 		})
+		const lower = keyword.toLowerCase()
+		// 关键词匹配：名称、地址、备注，以及类别（中文名称或英文 key）
+		const or = [{ name: reg }, { address: reg }, { remark: reg }]
+		const matchedTypes = TYPE_LIST.filter(t => {
+			const label = TYPE_LABELS[t] || ''
+			return t.toLowerCase().indexOf(lower) !== -1 || label.indexOf(keyword) !== -1
+		})
+		if (matchedTypes.length) {
+			or.push({ type: dbCmd.in(matchedTypes) })
+		}
+		conditions.push(dbCmd.or(...or))
 	}
+	const where = conditions.length ? dbCmd.and(...conditions) : {}
 
 	const countRes = await collection.where(where).count()
 

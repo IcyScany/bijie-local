@@ -1,23 +1,23 @@
 <template>
 	<view class="page">
 		<view class="header">
-			<text class="title">贡献者排行</text>
-			<text class="subtitle">感谢每一位为毕节生活地图贡献地点的用户</text>
+			<text class="title">共创者排行</text>
+			<text class="subtitle">感谢每一位为毕节生活地图共创地点的用户</text>
 		</view>
 
 		<AppSkeleton v-if="loading" :count="6" />
-		<view v-else-if="!list.length" class="empty">暂无贡献者，快去补充地点吧</view>
+		<view v-else-if="!list.length" class="empty">暂无共创者，快去补充地点吧</view>
 		<scroll-view v-else class="list" scroll-y>
 			<view v-for="(item, index) in list" :key="item.openid" class="item">
 				<view class="rank" :class="'rank-' + (index + 1)">{{ index + 1 }}</view>
 				<view class="avatar">{{ avatarText(item.name) }}</view>
 				<view class="info">
 					<text class="name">{{ item.name }}</text>
-					<text class="sub">最近贡献：{{ formatDate(item.lastDate) }}</text>
+					<text class="sub">最近共创：{{ formatDate(item.lastDate) }}</text>
 				</view>
 				<view class="count">
-					<text class="count-num">{{ item.count }}</text>
-					<text class="count-label">次</text>
+					<text class="count-num">{{ item.points }}</text>
+					<text class="count-label">分</text>
 				</view>
 			</view>
 		</scroll-view>
@@ -36,7 +36,7 @@
 		loadContributors()
 	})
 
-	// 拉取贡献者排行数据
+	// 拉取共创者排行数据
 	async function loadContributors() {
 		loading.value = true
 		try {

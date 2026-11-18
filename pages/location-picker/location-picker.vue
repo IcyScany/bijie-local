@@ -11,9 +11,7 @@
 			@regionchange="onRegionChange"
 		></map>
 
-		<cover-view class="pin-head"></cover-view>
-		<cover-view class="pin-hole"></cover-view>
-		<cover-view class="pin-stick"></cover-view>
+		<cover-image class="pin" src="/static/img/round-pushpin.png"></cover-image>
 
 		<view class="panel">
 			<view class="search-bar">
@@ -42,7 +40,7 @@
 					class="item"
 					@click="pickNearby(item)"
 				>
-					<text class="item-pin">📍</text>
+					<app-icon class="item-pin" icon="locationOn" size="lg" color="primary" />
 					<view class="item-info">
 						<text class="item-title">{{ item.title }}</text>
 						<text class="item-addr">{{ item.address }}</text>
@@ -58,6 +56,7 @@
 <script setup>
 	import { ref, getCurrentInstance } from 'vue'
 	import { onLoad } from '@dcloudio/uni-app'
+	import AppIcon from '@/components/AppIcon.vue'
 
 	const instance = getCurrentInstance()
 	const longitude = ref(105.2844)
@@ -291,53 +290,27 @@
 		flex: 1;
 	}
 
-	.pin-head {
+	/* 中心选点标记（round-pushpin 图钉，底部对准屏幕中心） */
+	.pin {
 		position: fixed;
 		left: 50%;
 		top: 22%;
-		width: 44rpx;
-		height: 44rpx;
-		margin-left: -22rpx;
-		margin-top: -72rpx;
-		background-color: #fa5151;
-		border: 4rpx solid #ffffff;
-		border-radius: 50%;
-		box-shadow: 0 8rpx 20rpx rgba(250, 81, 81, 0.5);
-	}
-
-	.pin-hole {
-		position: fixed;
-		left: 50%;
-		top: 22%;
-		width: 16rpx;
-		height: 16rpx;
-		margin-left: -8rpx;
-		margin-top: -54rpx;
-		background-color: #ffffff;
-		border-radius: 50%;
-	}
-
-	.pin-stick {
-		position: fixed;
-		left: 50%;
-		top: 22%;
-		width: 4rpx;
-		height: 22rpx;
-		margin-left: -2rpx;
-		margin-top: -22rpx;
-		background-color: #fa5151;
+		width: 70rpx;
+		height: 70rpx;
+		margin-left: -35rpx;
+		margin-top: -60rpx;
 	}
 
 	.panel {
 		height: 56vh;
-		background-color: $bg-card;
-		border-radius: $radius-xl $radius-xl 0 0;
+		background-color: #FFFFFF;
+		border-radius: 28rpx 28rpx 0 0;
 		margin-top: -24rpx;
-		padding: 24rpx $space-md 0;
+		padding: 24rpx 28rpx 0;
 		box-sizing: border-box;
 		display: flex;
 		flex-direction: column;
-		box-shadow: 0 -20rpx 48rpx rgba(29, 33, 41, 0.12);
+		box-shadow: 0 -16rpx 40rpx rgba(29, 33, 41, 0.08);
 		animation: fadeIn 0.3s ease;
 	}
 
@@ -345,38 +318,41 @@
 		display: flex;
 		align-items: center;
 		padding-bottom: 24rpx;
+		margin-top: 20rpx;
 	}
 
 	.search-input {
 		flex: 1;
-		height: 84rpx;
-		padding: 0 $space-md;
-		font-size: $fs-md;
-		color: $text-main;
-		background-color: $bg-fill;
-		border-radius: $radius-md;
+		height: 76rpx;
+		padding: 0 24rpx;
+		font-size: 28rpx;
+		color: #202124;
+		background-color: #FFFFFF;
+		border: 1rpx solid #DADCE0;
+		border-radius: 10rpx;
 		margin-right: 16rpx;
-		transition: all $duration-fast ease;
-		
+		box-sizing: border-box;
+		transition: border-color 0.2s ease;
+
 		&:focus {
-			background-color: $bg-fill-hover;
+			border-color: #1A73E8;
 		}
 	}
 
 	.search-btn {
-		width: 136rpx;
-		height: 84rpx;
-		line-height: 84rpx;
+		width: 128rpx;
+		height: 76rpx;
+		line-height: 76rpx;
 		text-align: center;
-		font-size: $fs-md;
-		font-weight: 500;
-		color: $text-inverse;
-		background-image: $brand-gradient;
-		border-radius: $radius-md;
-		transition: all $duration-fast ease;
-		
+		font-size: 28rpx;
+		font-weight: 600;
+		color: #FFFFFF;
+		background-color: #1A73E8;
+		border-radius: 10rpx;
+		transition: opacity 0.2s ease;
+
 		&:active {
-			transform: scale(0.96);
+			opacity: 0.9;
 		}
 	}
 
@@ -389,33 +365,42 @@
 	.center-item {
 		display: flex;
 		align-items: center;
-		background-color: $brand-soft;
-		border-radius: $radius-md;
-		padding: $space-md;
+		background-color: #E8F0FE;
+		border-radius: 10rpx;
+		padding: 22rpx;
 		margin-bottom: 16rpx;
-		transition: all $duration-fast ease;
-		
+	}
+
+	.confirm-btn {
+		margin-left: 16rpx;
+		padding: 12rpx 26rpx;
+		font-size: 26rpx;
+		font-weight: 600;
+		color: #FFFFFF;
+		background-color: #1A73E8;
+		border-radius: 100rpx;
+		transition: opacity 0.2s ease;
+
 		&:active {
-			transform: scale(0.98);
+			opacity: 0.9;
 		}
 	}
 
 	.item {
 		display: flex;
 		align-items: flex-start;
-		padding: $space-md 8rpx;
-		border-bottom: 1rpx solid $border-color;
-		transition: all $duration-fast ease;
-		
+		padding: 22rpx 8rpx;
+		border-bottom: 1rpx solid #F0F1F3;
+		transition: background-color 0.2s ease;
+
 		&:active {
-			background-color: $bg-fill;
+			background-color: #F8F9FA;
 		}
 	}
 
 	.item-pin {
-		font-size: 36rpx;
-		margin-right: 16rpx;
-		line-height: 1.2;
+		margin-right: 14rpx;
+		flex-shrink: 0;
 	}
 
 	.item-info {
@@ -426,38 +411,22 @@
 	}
 
 	.item-title {
-		font-size: 32rpx;
+		font-size: 28rpx;
 		font-weight: 500;
 		color: $text-main;
 	}
 
 	.item-addr {
-		margin-top: 8rpx;
-		font-size: $fs-sm;
+		margin-top: 6rpx;
+		font-size: 22rpx;
 		color: $text-secondary;
 		line-height: 1.4;
 	}
 
-	.confirm-btn {
-		margin-left: 16rpx;
-		padding: 14rpx 30rpx;
-		font-size: $fs-md;
-		font-weight: 500;
-		color: $brand;
-		background-color: #ffffff;
-		border: 2rpx solid $brand;
-		border-radius: $radius-sm;
-		transition: all $duration-fast ease;
-		
-		&:active {
-			transform: scale(0.95);
-		}
-	}
-
 	.empty {
 		text-align: center;
-		padding: 64rpx 0;
-		font-size: $fs-sm;
+		padding: 72rpx 0;
+		font-size: 26rpx;
 		color: $text-secondary;
 	}
 </style>

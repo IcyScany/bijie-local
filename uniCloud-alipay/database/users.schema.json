@@ -32,12 +32,17 @@
 		},
 		"contribution_count": {
 			"bsonType": "int",
-			"title": "贡献次数",
+			"title": "共创次数",
+			"defaultValue": 0
+		},
+		"contribution_points": {
+			"bsonType": "int",
+			"title": "共创积分",
 			"defaultValue": 0
 		},
 		"last_contribution_date": {
 			"bsonType": "timestamp",
-			"title": "最近贡献时间"
+			"title": "最近共创时间"
 		},
 		"last_login_date": {
 			"bsonType": "timestamp",

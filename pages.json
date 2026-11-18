@@ -3,14 +3,20 @@
 		{
 			"path": "pages/map/map",
 			"style": {
-				"navigationBarTitleText": "毕节生活地图",
+				"navigationBarTitleText": "毕节路小摊",
 				"disableScroll": true
 			}
 		},
 		{
 			"path": "pages/admin/review",
 			"style": {
-				"navigationBarTitleText": "地点审核"
+				"navigationBarTitleText": "审核管理"
+			}
+		},
+		{
+			"path": "pages/admin/spots",
+			"style": {
+				"navigationBarTitleText": "地点管理"
 			}
 		},
 		{
@@ -28,7 +34,7 @@
 		{
 			"path": "pages/contributors/contributors",
 			"style": {
-				"navigationBarTitleText": "贡献者"
+				"navigationBarTitleText": "共创者"
 			}
 		},
 		{
@@ -59,7 +65,7 @@
 		{
 			"path": "pages/contributions/contributions",
 			"style": {
-				"navigationBarTitleText": "我的贡献"
+				"navigationBarTitleText": "我的共创"
 			}
 		}
 	],
@@ -86,7 +92,7 @@
 			},
 			{
 				"pagePath": "pages/contributors/contributors",
-				"text": "贡献",
+				"text": "共创",
 				"iconPath": "static/tabbar/leaderboard.png",
 				"selectedIconPath": "static/tabbar/leaderboard-active.png"
 			},

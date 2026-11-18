@@ -36,6 +36,7 @@
 						<text v-if="item.status === 'pending'" class="tag pending">待审核</text>
 						<text v-else-if="item.status === 'rejected'" class="tag rejected">已驳回</text>
 						<text v-if="item.source === 'user'" class="tag user">用户提交</text>
+						<text v-if="item.report_type === 'image'" class="tag image">图片补充</text>
 						<text class="card-tag" :style="{ backgroundColor: typeColor(item.type) }">{{ typeText(item.type) }}</text>
 					</view>
 				</view>
@@ -48,11 +49,13 @@
 				<text v-if="item.report_reason" class="card-line">更新说明：{{ item.report_reason }}</text>
 				<text v-else-if="item.remark" class="card-line">备注：{{ item.remark }}</text>
 				<text v-if="item.longitude && item.latitude" class="card-line">坐标：{{ item.longitude }}, {{ item.latitude }}</text>
-				<text v-if="item.contributor_name" class="card-line">贡献者：{{ item.contributor_name }}</text>
+				<text v-if="item.contributor_name" class="card-line">共创者：{{ item.contributor_name }}</text>
+				<text v-if="item.reject_reason" class="card-line">驳回原因：{{ item.reject_reason }}</text>
 
 				<view class="card-actions">
 					<view v-if="item.status === 'pending'" class="action-btn approve" @click="onReview(item, 'approved')">通过</view>
 					<view v-if="item.status === 'pending'" class="action-btn reject" @click="onReview(item, 'rejected')">驳回</view>
+					<view v-if="item.status === 'rejected'" class="action-btn approve" @click="onReview(item, 'pending')">撤回驳回</view>
 					<view class="action-btn delete" @click="onDelete(item)">删除</view>
 				</view>
 			</view>
@@ -69,6 +72,7 @@
 	import { ensureLogin, isAdmin, getToken, isAuthError, relogin } from '@/utils/auth.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
 	import { PLACE_TYPES, getTypeLabel, getTypeColor } from '@/utils/placeTypes.js'
+	import { compressImage, filterOversizeImages } from '@/utils/image.js'
 	import AppSkeleton from '@/components/AppSkeleton.vue'
 
 	const spotsObj = uniCloud.importObject('spots', {
@@ -112,7 +116,7 @@
 
 	const keyword = ref('')
 	const filterType = ref('')
-	const filterStatus = ref('')
+	const filterStatus = ref('pending')
 	const list = ref([])
 	const total = ref(0)
 	const loading = ref(false)
@@ -197,6 +201,7 @@
 				keyword: keyword.value,
 				type: filterType.value,
 				status: filterStatus.value,
+				source: 'user',
 				page: 1,
 				pageSize: 100
 			})
@@ -296,13 +301,21 @@
 	// 将本地图片上传到云存储并收集 fileID
 	async function uploadImages(filePaths) {
 		if (uploading.value) return
+		const { ok, oversize } = await filterOversizeImages(filePaths)
+		if (oversize) {
+			uni.showToast({
+				title: '有 ' + oversize + ' 张图片超过 6MB，已跳过',
+				icon: 'none'
+			})
+		}
+		if (!ok.length) return
 		uploading.value = true
 		uni.showLoading({
 			title: '上传中...'
 		})
 		try {
-			for (let i = 0; i < filePaths.length; i++) {
-				const filePath = filePaths[i]
+			for (let i = 0; i < ok.length; i++) {
+				const filePath = await compressImage(ok[i])
 				const ext = (filePath.split('.').pop() || 'jpg').toLowerCase()
 				const cloudPath = 'spots/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext
 				const uploadRes = await uniCloud.uploadFile({
@@ -383,26 +396,58 @@
 		}
 	}
 
-	// 审核用户提交：通过或驳回
+	// 审核用户提交：通过 / 驳回（可填原因）/ 撤回驳回
 	function onReview(item, status) {
-		const text = status === 'approved' ? '通过' : '驳回'
+		if (status === 'rejected') {
+			uni.showModal({
+				title: '驳回原因',
+				editable: true,
+				placeholderText: '请输入驳回原因（可选）',
+				success: (res) => {
+					if (!res.confirm) return
+					doReview(item, 'rejected', String(res.content || '').trim())
+				}
+			})
+			return
+		}
+		if (status === 'pending') {
+			uni.showModal({
+				title: '撤回驳回',
+				content: '确定将「' + item.name + '」撤回到待审核吗？',
+				success: (res) => {
+					if (!res.confirm) return
+					doReview(item, 'pending', '')
+				}
+			})
+			return
+		}
 		uni.showModal({
 			title: '审核确认',
-			content: '确定' + text + '「' + item.name + '」吗？',
-			success: async (res) => {
+			content: '确定通过「' + item.name + '」吗？',
+			success: (res) => {
 				if (!res.confirm) return
-				try {
-					await runAdmin((token) => spotsObj.review(item._id, status, token))
-					uni.showToast({
-						title: '已' + text,
-						icon: 'success'
-					})
-					loadList()
-				} catch (err) {
-					showError(err)
-				}
+				doReview(item, 'approved', '')
 			}
 		})
+	}
+
+	// 执行审核并刷新列表
+	async function doReview(item, status, reason) {
+		const textMap = {
+			approved: '已通过',
+			rejected: '已驳回',
+			pending: '已撤回'
+		}
+		try {
+			await runAdmin((token) => spotsObj.review(item._id, status, token, reason))
+			uni.showToast({
+				title: textMap[status] || '已完成',
+				icon: 'success'
+			})
+			loadList()
+		} catch (err) {
+			showError(err)
+		}
 	}
 
 	// 删除地点（二次确认）
@@ -586,6 +631,10 @@
 
 	.tag.user {
 		background-color: $purple;
+	}
+
+	.tag.image {
+		background-color: $brand;
 	}
 
 	.card-tag {

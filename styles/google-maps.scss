@@ -398,7 +398,7 @@ $fs-2xl: 42rpx;
 }
 
 .gm-chip-icon {
-	margin-right: 4rpx;
+	margin-right: 3rpx;
 	font-size: 24rpx;
 	line-height: 1;
 	display: inline-flex;
@@ -468,7 +468,7 @@ $fs-2xl: 42rpx;
 .gm-search {
 	display: flex;
 	align-items: center;
-	height: 96rpx;
+	height: 76rpx;
 	padding: 0 $space-md;
 	background-color: $bg-card;
 	border-radius: $radius-pill;
@@ -495,7 +495,8 @@ $fs-2xl: 42rpx;
 
 .gm-search-input {
 	flex: 1;
-	height: 96rpx;
+	min-width: 0;
+	height: 100%;
 	font-size: 28rpx;
 	color: $text-main;
 	background-color: transparent;
@@ -545,6 +546,12 @@ $fs-2xl: 42rpx;
 	z-index: 100;
 	pointer-events: auto;
 	touch-action: manipulation;
+}
+
+/* 顶部拖动区：把手 + 标题，按住即可拖动面板 */
+.gm-sheet-drag-area {
+	flex-shrink: 0;
+	touch-action: none;
 }
 
 .gm-bottom-sheet-handle {

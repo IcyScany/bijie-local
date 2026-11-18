@@ -156,6 +156,11 @@ export function getToken() {
 	return uni.getStorageSync(TOKEN_KEY) || ''
 }
 
+// 读取本地保存的 openid（当前登录用户）
+export function getOpenid() {
+	return uni.getStorageSync(OPENID_KEY) || ''
+}
+
 // 判断当前用户是否为管理员
 export function isAdmin() {
 	return !!uni.getStorageSync(ADMIN_KEY)

@@ -10,11 +10,18 @@ export const ICONS = {
 	call: '/static/icons/call.svg',
 	directions: '/static/icons/directions.svg',
 	nearMe: '/static/icons/near_me.svg',
+	myLocation: '/static/icons/my_location.svg',
 	photoCamera: '/static/icons/photo_camera.svg',
 	locationOn: '/static/icons/location_on.svg',
+	arrowInsert: '/static/icons/arrow_insert.svg',
+	schedule: '/static/icons/schedule.svg',
+	arrowBack: '/static/icons/arrow_back.svg',
+	exploreNearby: '/static/icons/explore_nearby.svg',
+	cancel: '/static/icons/cancel.svg',
 	person: '/static/icons/person.svg',
 	bookmarkStar: '/static/icons/bookmark_star.svg',
 	rateReview: '/static/icons/rate_review.svg',
+	delete: '/static/icons/delete.svg',
 	
 	// 分类图标
 	restaurant: '/static/icons/restaurant.svg',

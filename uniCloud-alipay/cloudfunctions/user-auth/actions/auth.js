@@ -25,6 +25,7 @@ async function login(event) {
 			avatar: event.avatar || '',
 			is_admin: false,
 			contribution_count: 0,
+			contribution_points: 0,
 			last_login_date: now,
 			create_date: now,
 			update_date: now
@@ -143,6 +144,7 @@ async function getProfile(event) {
 			nickname: user.nickname || '',
 			avatar: user.avatar || '',
 			contributionCount: user.contribution_count || 0,
+			contributionPoints: user.contribution_points || 0,
 			lastContributionDate: user.last_contribution_date || 0,
 			isAdmin: admin
 		}

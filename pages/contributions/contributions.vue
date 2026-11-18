@@ -7,9 +7,9 @@
 		</view>
 
 		<view v-if="loading" class="hint">加载中...</view>
-		<view v-else-if="!list.length" class="hint">还没有贡献记录</view>
+		<view v-else-if="!list.length" class="hint">还没有共创记录</view>
 		<view v-else class="list">
-			<view v-for="item in list" :key="item._id" class="item">
+			<view v-for="item in list" :key="item._id" class="item" @click="openDetail(item)">
 				<view class="item-head">
 					<text class="item-action">{{ actionText(item.action) }}</text>
 					<text class="item-status" :class="'status-' + (item.status || 'pending')">{{ statusText(item.status) }}</text>
@@ -19,6 +19,37 @@
 				<text class="item-date">{{ formatDate(item.create_date) }}</text>
 			</view>
 			<view class="end">已经到底啦</view>
+		</view>
+
+		<!-- 共创详情 -->
+		<view v-if="detailItem" class="detail-mask" @click="closeDetail">
+			<view class="detail-card" @click.stop>
+				<view class="detail-head">
+					<text class="detail-title">{{ actionText(detailItem.action) }}</text>
+					<text class="item-status" :class="'status-' + (detailItem.status || 'pending')">{{ statusText(detailItem.status) }}</text>
+				</view>
+				<view class="detail-row">
+					<text class="detail-label">地点</text>
+					<text class="detail-value">{{ detailItem.spot_name || '—' }}</text>
+				</view>
+				<view class="detail-row">
+					<text class="detail-label">类型</text>
+					<text class="detail-value">{{ detailItem.report_type === 'update' ? '更新反馈' : (detailItem.report_type === 'image' ? '补充图片' : '新增地点') }}</text>
+				</view>
+				<view v-if="detailItem.report_reason" class="detail-row">
+					<text class="detail-label">说明</text>
+					<text class="detail-value">{{ detailItem.report_reason }}</text>
+				</view>
+				<view class="detail-row">
+					<text class="detail-label">提交时间</text>
+					<text class="detail-value">{{ formatDate(detailItem.create_date) }}</text>
+				</view>
+				<view v-if="detailItem.update_date" class="detail-row">
+					<text class="detail-label">更新时间</text>
+					<text class="detail-value">{{ formatDate(detailItem.update_date) }}</text>
+				</view>
+				<view class="detail-btn" @click="closeDetail">关闭</view>
+			</view>
 		</view>
 	</view>
 </template>
@@ -35,6 +66,15 @@
 	const list = ref([])
 	const loading = ref(false)
 	const activeType = ref('all')
+
+	// 详情弹窗当前项
+	const detailItem = ref(null)
+	function openDetail(item) {
+		detailItem.value = item
+	}
+	function closeDetail() {
+		detailItem.value = null
+	}
 
 	onShow(() => {
 		load()
@@ -74,9 +114,10 @@
 		const map = {
 			add: '新增地点',
 			update: '修改地点',
-			submit: '提交地点'
+			submit: '提交地点',
+			image: '补充图片'
 		}
-		return map[action] || '贡献'
+		return map[action] || '共创'
 	}
 
 	function statusText(status) {
@@ -212,5 +253,75 @@
 		text-align: center;
 		font-size: $fs-xs;
 		color: $text-disabled;
+	}
+
+	/* 共创详情弹窗 */
+	.detail-mask {
+		position: fixed;
+		left: 0;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		background-color: rgba(32, 33, 36, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 999;
+		padding: 0 48rpx;
+		box-sizing: border-box;
+	}
+
+	.detail-card {
+		width: 100%;
+		background-color: $bg-card;
+		border-radius: $radius-lg;
+		padding: $space-lg;
+		box-sizing: border-box;
+		box-shadow: $shadow-card;
+	}
+
+	.detail-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: $space-md;
+	}
+
+	.detail-title {
+		font-size: 32rpx;
+		font-weight: 600;
+		color: $text-main;
+	}
+
+	.detail-row {
+		display: flex;
+		align-items: flex-start;
+		margin-bottom: 20rpx;
+	}
+
+	.detail-label {
+		width: 140rpx;
+		flex-shrink: 0;
+		font-size: $fs-sm;
+		color: $text-secondary;
+	}
+
+	.detail-value {
+		flex: 1;
+		font-size: $fs-sm;
+		color: $text-main;
+		line-height: 1.5;
+		word-break: break-all;
+	}
+
+	.detail-btn {
+		margin-top: $space-md;
+		height: 80rpx;
+		line-height: 80rpx;
+		text-align: center;
+		font-size: 28rpx;
+		color: $text-inverse;
+		background-color: $brand;
+		border-radius: $radius-pill;
 	}
 </style>

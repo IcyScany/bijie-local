@@ -13,16 +13,16 @@
 		},
 		"openid": {
 			"bsonType": "string",
-			"title": "贡献者OpenID"
+			"title": "共创者OpenID"
 		},
 		"name": {
 			"bsonType": "string",
-			"title": "贡献者名称",
+			"title": "共创者名称",
 			"trim": "both"
 		},
 		"action": {
 			"bsonType": "string",
-			"title": "贡献动作",
+			"title": "共创动作",
 			"enum": [{
 				"value": "add",
 				"text": "新增地点"
@@ -32,6 +32,9 @@
 			}, {
 				"value": "submit",
 				"text": "投稿"
+			}, {
+				"value": "image",
+				"text": "补充图片"
 			}]
 		},
 		"spot_id": {
@@ -44,18 +47,27 @@
 		},
 		"report_type": {
 			"bsonType": "string",
-			"title": "贡献类型",
+			"title": "共创类型",
 			"enum": [{
 				"value": "new",
 				"text": "新增地点"
 			}, {
 				"value": "update",
 				"text": "更新反馈"
+			}, {
+				"value": "image",
+				"text": "补充图片"
 			}]
 		},
 		"report_reason": {
 			"bsonType": "string",
-			"title": "贡献说明"
+			"title": "共创说明"
+		},
+		"points": {
+			"bsonType": "int",
+			"title": "积分",
+			"description": "本条共创的积分（新增10/更新3），仅审核通过时计入",
+			"defaultValue": 0
 		},
 		"status": {
 			"bsonType": "string",
@@ -74,7 +86,7 @@
 		},
 		"create_date": {
 			"bsonType": "timestamp",
-			"title": "贡献时间",
+			"title": "共创时间",
 			"forceDefaultValue": {
 				"$env": "now"
 			}

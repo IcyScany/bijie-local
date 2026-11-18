@@ -5,25 +5,34 @@
 			:center="center"
 			:scale="scale"
 			:markers="markers"
-			:list="filteredSpots"
+			:list="spots"
 			:loading="loading"
 			:loading-more="loadingMore"
 			:has-more="hasMore"
 			:image-map="imageMap"
 			:category-label="categoryLabel"
 			:user-location="userLocation"
-			:hide-sheet="detailVisible"
+			:hide-sheet="detailVisible || searchActive"
 			v-model:sort-by="sortBy"
-			:disabled="detailVisible"
+			:default-collapsed="true"
+			:show-locate="!searchActive"
+			:external-touching="mapTouching"
 			@select="focusSpot"
 			@loadmore="loadMore"
+			@map-tap="closeDetail"
+			@locate="locateMe"
 		/>
 
 		<!-- 搜索 + 分类 -->
 		<MapSearchBar
+			ref="searchBarRef"
 			:categories="categories"
 			v-model:category="category"
 			v-model:keyword="searchKeyword"
+			:spots="spots"
+			:user-location="userLocation"
+			@select-spot="onSelectSpotFromSearch"
+			@search-state="onSearchState"
 		/>
 
 		<!-- 地点详情（含写评价、反馈） -->
@@ -37,31 +46,31 @@
 			:has-coord="hasCoord"
 			:avatar-map="commentAvatarMap"
 			:favorite="isFavorite"
+			:full="detailFull"
 			@close="closeDetail"
 			@preview="previewImage"
 			@route="goHere"
 			@comment-added="onCommentAdded"
+			@comment-removed="onCommentRemoved"
 			@favorite="toggleFavorite"
 			@add-image="chooseSpotImages"
+			@sheet-touching="mapTouching = $event"
 		/>
 	</view>
 </template>
 
 <script setup>
 	import { ref, computed, watch } from 'vue'
-	import { onShow } from '@dcloudio/uni-app'
-	import { ensureLogin, getUserInfo, getToken, isAuthError, relogin } from '@/utils/auth.js'
-	import { resolveCloudFiles } from '@/utils/cloudFile.js'
-	import { getMapCategories, getTypeIcon } from '@/utils/placeTypes.js'
+	import { onShow, onHide } from '@dcloudio/uni-app'
+	import { ensureLogin, getToken, isAuthError, relogin } from '@/utils/auth.js'
+	import { getMapCategories } from '@/utils/placeTypes.js'
+	import { useSpotExplorer } from '@/utils/useSpotExplorer.js'
+	import { compressImage, filterOversizeImages } from '@/utils/image.js'
 	import MapExplorer from './components/MapExplorer.vue'
 	import MapSearchBar from './components/MapSearchBar.vue'
 	import SpotDetailSheet from './components/SpotDetailSheet.vue'
 
 	const spotsObj = uniCloud.importObject('spots', {
-		customUI: true
-	})
-
-	const commentObj = uniCloud.importObject('spot-comments', {
 		customUI: true
 	})
 
@@ -82,35 +91,197 @@
 	const pageHeight = ref(0)
 	const pageStyle = computed(() => pageHeight.value ? { height: pageHeight.value + 'px' } : {})
 
-	// 当前分类标题
+	// 当前分类标题：全部时展示「本地生活」
 	const categoryLabel = computed(() => {
+		if (category.value === 'all') return '本地生活'
 		const found = categories.find(c => c.value === category.value)
-		return found ? found.label : '全部'
+		return found ? found.label : '本地生活'
 	})
 
 	// 列表排序：default | rating | distance（默认按距离）
 	const sortBy = ref('distance')
 	// 用户当前位置（用于距离排序/展示）
 	const userLocation = ref(null)
+	// 首次进入是否已把地图中心定位到用户位置（仅首次，避免从其他页返回时打断浏览）
+	const centeredToUser = ref(false)
+	// 详情面板拖动中：临时禁用地图手势，避免触摸穿透
+	const mapTouching = ref(false)
 
-	const scale = ref(13)
-	const center = ref({
-		longitude: 105.2844,
-		latitude: 27.2987
-	})
-	const centerName = ref('贵州省毕节市七星关区')
 	const loading = ref(false)
 	const loadingMore = ref(false)
-	const detailVisible = ref(false)
-	const currentSpot = ref({})
-	const selectedMarkerIndex = ref(-1)
 
 	// 收藏（云端存储）
 	const favoriteIds = ref([])
-	const isFavorite = computed(() => {
-		const spot = currentSpot.value
-		return !!(spot && spot._id && favoriteIds.value.indexOf(spot._id) !== -1)
+
+	const spots = ref([])
+	const pageSize = 50
+	const page = ref(1)
+	const hasMore = ref(true)
+	const SPOTS_CACHE_KEY = 'spots_cache'
+
+	const uploadingImage = ref(false)
+
+	// 地图浏览通用逻辑：选中/详情/评价/图片/收藏状态/标记
+	const {
+		imageMap,
+		center,
+		scale,
+		detailVisible,
+		detailFull,
+		currentSpot,
+		comments,
+		commentsLoading,
+		commentAvatarMap,
+		currentImages,
+		hasCoord,
+		currentRating,
+		isFavorite,
+		markers,
+		resolveSpotImages,
+		onCommentAdded,
+		onCommentRemoved,
+		previewImage,
+		closeDetail,
+		focusSpot,
+		goHere
+	} = useSpotExplorer({
+		list: spots,
+		favoriteIds
 	})
+
+	// 搜索结果中选中地点：定位并打开详情（结果可能不在当前列表，需先并入）
+	function onSelectSpotFromSearch(spot) {
+		if (!spot || !spot._id) return
+		let index = spots.value.findIndex(s => s._id === spot._id)
+		if (index === -1) {
+			spots.value = spots.value.concat([spot])
+			index = spots.value.length - 1
+		}
+		focusSpot(index, 'list')
+	}
+
+	// 搜索栏引用：离开页面时收起搜索
+	const searchBarRef = ref(null)
+	// 是否处于搜索状态（搜索时隐藏地点列表面板）
+	const searchActive = ref(false)
+
+	// 搜索状态变化：进入搜索时先收起已打开的地点详情
+	function onSearchState(active) {
+		searchActive.value = active
+		if (active) {
+			closeDetail()
+		}
+	}
+
+	// 回到我的位置：定位并平移到当前位置
+	const locateMe = () => {		uni.getLocation({
+			type: 'gcj02',
+			success: (res) => {
+				userLocation.value = {
+					latitude: res.latitude,
+					longitude: res.longitude
+				}
+				center.value = {
+					longitude: res.longitude,
+					latitude: res.latitude
+				}
+				scale.value = 16
+			},
+			fail: () => {
+				uni.showToast({
+					title: '定位失败，请检查定位权限',
+					icon: 'none'
+				})
+			}
+		})
+	}
+
+	// 获取用户当前位置：定位结束后统一拉取一次数据（距离排序依赖定位）
+	function fetchUserLocation() {
+		let settled = false
+		const finish = () => {
+			if (settled) return
+			settled = true
+			loadSpots()
+		}
+		// 兜底：定位长期无回调时仍能加载一次
+		const timer = setTimeout(finish, 8000)
+		uni.getLocation({
+			type: 'gcj02',
+			success: (res) => {
+				userLocation.value = {
+					latitude: res.latitude,
+					longitude: res.longitude
+				}
+				// 首次进入时把地图中心定位到用户当前位置
+				if (!centeredToUser.value) {
+					centeredToUser.value = true
+					center.value = {
+						longitude: res.longitude,
+						latitude: res.latitude
+					}
+					scale.value = 16
+				}
+				clearTimeout(timer)
+				finish()
+			},
+			fail: () => {
+				userLocation.value = null
+				clearTimeout(timer)
+				finish()
+			}
+		})
+	}
+
+	onShow(() => {
+		try {
+			const info = uni.getWindowInfo ? uni.getWindowInfo() : uni.getSystemInfoSync()
+			pageHeight.value = info.windowHeight || 0
+		} catch (e) {}
+		loadFavorites()
+		fetchUserLocation()
+	})
+
+	// 离开页面时收起搜索状态，恢复 tabbar
+	onHide(() => {
+		if (searchBarRef.value && searchBarRef.value.closeSearch) {
+			searchBarRef.value.closeSearch()
+		}
+	})
+
+	// 排序变化时按新排序重新拉取（显示骨架屏）
+	watch(sortBy, () => {
+		reloadSpots()
+	})
+
+	// 分类切换：先关闭详情，再重新拉取
+	watch(category, () => {
+		closeDetail()
+		reloadSpots()
+	})
+
+	// 关键词搜索防抖后重新拉取
+	let searchTimer = null
+	watch(searchKeyword, () => {
+		closeDetail()
+		if (searchTimer) clearTimeout(searchTimer)
+		searchTimer = setTimeout(() => {
+			searchTimer = null
+			reloadSpots()
+		}, 300)
+	})
+
+	// 重置到首屏并按当前筛选重新拉取（强制显示加载动效）
+	function reloadSpots() {
+		page.value = 1
+		hasMore.value = true
+		loadSpots(true)
+	}
+
+	// 是否处于默认筛选（全部 + 无关键词），仅此时使用缓存
+	function isDefaultFilter() {
+		return category.value === 'all' && !searchKeyword.value.trim()
+	}
 
 	async function loadFavorites() {
 		try {
@@ -168,182 +339,6 @@
 			})
 		}
 	}
-	const spots = ref([])
-	const imageMap = ref({})
-	const pageSize = 50
-	const page = ref(1)
-	const hasMore = ref(true)
-	const SPOTS_CACHE_KEY = 'spots_cache'
-
-	// 评价
-	const comments = ref([])
-	const commentsTotal = ref(0)
-	const commentsAvg = ref(0)
-	const commentsLoaded = ref(false)
-	const commentsLoading = ref(false)
-	const commentAvatarMap = ref({})
-
-	const uploadingImage = ref(false)
-
-	const filteredSpots = computed(() => {
-		const kw = searchKeyword.value.trim().toLowerCase()
-		return spots.value.filter(item => {
-			if (category.value !== 'all' && item.type !== category.value) return false
-			if (!kw) return true
-			const text = `${item.name || ''} ${item.address || ''} ${item.remark || ''}`.toLowerCase()
-			return text.indexOf(kw) !== -1
-		})
-	})
-
-	// 获取用户当前位置：定位结束后统一拉取一次数据（距离排序依赖定位）
-	function fetchUserLocation() {
-		let settled = false
-		const finish = () => {
-			if (settled) return
-			settled = true
-			loadSpots()
-		}
-		// 兜底：定位长期无回调时仍能加载一次
-		const timer = setTimeout(finish, 8000)
-		uni.getLocation({
-			type: 'gcj02',
-			success: (res) => {
-				userLocation.value = {
-					latitude: res.latitude,
-					longitude: res.longitude
-				}
-				clearTimeout(timer)
-				finish()
-			},
-			fail: () => {
-				userLocation.value = null
-				clearTimeout(timer)
-				finish()
-			}
-		})
-	}
-
-	const currentImages = computed(() => {
-		const imgs = Array.isArray(currentSpot.value.images) ? currentSpot.value.images : []
-		return imgs.map(id => imageMap.value[id] || '').filter(url => !!url)
-	})
-
-	const hasCoord = computed(() => {
-		const longitude = Number(currentSpot.value.longitude)
-		const latitude = Number(currentSpot.value.latitude)
-		return Number.isFinite(longitude) && Number.isFinite(latitude)
-	})
-
-	const markers = computed(() => {
-		const result = []
-		filteredSpots.value.forEach((spot, index) => {
-			const longitude = Number(spot.longitude)
-			const latitude = Number(spot.latitude)
-			if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
-				return
-			}
-			const active = index === selectedMarkerIndex.value
-			result.push({
-				id: index,
-				longitude,
-				latitude,
-				title: spot.name,
-				iconPath: `/static/markers/${getTypeIcon(spot.type)}.png`,
-				width: active ? 48 : 36,
-				height: active ? 48 : 36,
-				anchor: {
-					x: 0.5,
-					y: 0.92
-				},
-				callout: {
-					content: spot.name,
-					color: '#1f2329',
-					fontSize: 12,
-					borderRadius: 8,
-					borderWidth: 0,
-					bgColor: '#ffffff',
-					padding: 8,
-					display: 'BYCLICK',
-					textAlign: 'center'
-				}
-			})
-		})
-		return result
-	})
-
-	onShow(() => {
-		try {
-			const info = uni.getWindowInfo ? uni.getWindowInfo() : uni.getSystemInfoSync()
-			pageHeight.value = info.windowHeight || 0
-		} catch (e) {}
-		loadFavorites()
-		fetchUserLocation()
-		checkProfile()
-	})
-
-	// 排序变化时按新排序重新拉取（后端排序）
-	watch(sortBy, () => {
-		loadSpots()
-	})
-
-	// 首次进入提示完善头像昵称（仅提示一次）
-	async function checkProfile() {
-		try {
-			await ensureLogin()
-		} catch (e) {
-			return
-		}
-		if (uni.getStorageSync('profile_prompted')) return
-		const info = getUserInfo()
-		const name = String(info.nickname || '')
-		if (name && !/^用户.{4}$/.test(name)) return
-		uni.setStorageSync('profile_prompted', true)
-		uni.showModal({
-			title: '完善资料',
-			content: '设置头像和昵称，让贡献记录更清晰',
-			confirmText: '去设置',
-			success: (res) => {
-				if (res.confirm) {
-					uni.switchTab({
-						url: '/pages/mine/mine'
-					})
-				}
-			}
-		})
-	}
-
-	// 批量把地点图片的 fileID 转成可访问链接
-	async function resolveSpotImages(list) {
-		const ids = []
-		;(list || []).forEach(spot => {
-			(spot.images || []).forEach(id => {
-				if (id && ids.indexOf(id) === -1) {
-					ids.push(id)
-				}
-			})
-		})
-		if (!ids.length) return
-		const map = await resolveCloudFiles(ids)
-		imageMap.value = Object.assign({}, imageMap.value, map)
-	}
-
-	// 评分（已随地点列表一起返回）
-	function ratingOf(spot) {
-		return {
-			avg: spot && spot.rating ? spot.rating : 0,
-			count: spot && spot.rating_count ? spot.rating_count : 0
-		}
-	}
-
-	const currentRating = computed(() => {
-		if (commentsLoaded.value) {
-			return {
-				avg: commentsAvg.value,
-				count: commentsTotal.value
-			}
-		}
-		return ratingOf(currentSpot.value)
-	})
 
 	function readCache() {
 		try {
@@ -366,27 +361,30 @@
 
 	function fetchSpots(pageNo) {
 		const loc = userLocation.value
+		const keyword = searchKeyword.value.trim()
 		return spotsObj.getList({
 			status: 'approved',
 			withRating: true,
 			page: pageNo,
 			pageSize,
 			sort: sortBy.value,
+			type: category.value !== 'all' ? category.value : undefined,
+			keyword: keyword || undefined,
 			latitude: loc ? loc.latitude : undefined,
 			longitude: loc ? loc.longitude : undefined
 		})
 	}
 
 	// 拉取已通过审核的地点：先用缓存秒出，再拉首屏
-	async function loadSpots() {
+	async function loadSpots(forceLoading) {
 		if (!spots.value.length) {
-			const cached = readCache()
+			const cached = isDefaultFilter() ? readCache() : []
 			if (cached.length) {
 				spots.value = cached
 				resolveSpotImages(cached)
 			}
 		}
-		loading.value = !spots.value.length
+		loading.value = forceLoading ? true : !spots.value.length
 		try {
 			const res = await fetchSpots(1)
 			const list = res.list || []
@@ -394,7 +392,7 @@
 			page.value = 1
 			hasMore.value = list.length < (res.total || 0)
 			resolveSpotImages(list)
-			writeCache(list)
+			if (isDefaultFilter()) writeCache(list)
 		} catch (err) {
 			if (!spots.value.length) {
 				const msg = (err && (err.errMsg || err.message)) || '地点加载失败'
@@ -428,105 +426,11 @@
 		}
 	}
 
-	// 定位到选中地点并弹出详情
-	function focusSpot(index) {
-		const spot = filteredSpots.value[index]
-		if (!spot) return
-		const longitude = Number(spot.longitude)
-		const latitude = Number(spot.latitude)
-		if (Number.isFinite(longitude) && Number.isFinite(latitude)) {
-			center.value = {
-				longitude,
-				latitude
-			}
-			centerName.value = spot.name
-			scale.value = 16
-		}
-		const missing = (spot.images || []).some(id => id && !imageMap.value[id])
-		if (missing) {
-			resolveSpotImages([spot])
-		}
-		currentSpot.value = spot
-		selectedMarkerIndex.value = index
-		detailVisible.value = true
-		comments.value = []
-		commentsTotal.value = 0
-		commentsAvg.value = 0
-		commentsLoaded.value = false
-		loadComments()
-	}
-
-	function closeDetail() {
-		detailVisible.value = false
-		selectedMarkerIndex.value = -1
-	}
-
-	function previewImage(index) {
-		uni.previewImage({
-			urls: currentImages.value,
-			current: index
-		})
-	}
-
-	async function resolveCommentAvatars(items) {
-		const ids = []
-		;(items || []).forEach(item => {
-			if (item.avatar && ids.indexOf(item.avatar) === -1) {
-				ids.push(item.avatar)
-			}
-		})
-		if (!ids.length) return
-		const map = await resolveCloudFiles(ids)
-		commentAvatarMap.value = Object.assign({}, commentAvatarMap.value, map)
-	}
-
-	// 拉取当前地点的评价
-	async function loadComments() {
-		const spot = currentSpot.value
-		if (!spot || !spot._id) return
-		const id = spot._id
-		commentsLoading.value = true
-		try {
-			const res = await commentObj.getList({
-				spot_id: id,
-				page: 1,
-				pageSize: 20
-			})
-			if (!currentSpot.value || currentSpot.value._id !== id) return
-			const data = res.data || {}
-			comments.value = data.list || []
-			commentsTotal.value = data.total || 0
-			commentsAvg.value = data.avg || 0
-			commentsLoaded.value = true
-			resolveCommentAvatars(comments.value)
-		} catch (e) {
-		} finally {
-			commentsLoading.value = false
-		}
-	}
-
-	// 详情组件内发布评价后回调，更新列表与评分
-	function onCommentAdded(item) {
-		if (!item) return
-		const prevCount = commentsTotal.value
-		const prevAvg = commentsAvg.value
-		comments.value.unshift(item)
-		commentsTotal.value = prevCount + 1
-		commentsAvg.value = Math.round(((prevAvg * prevCount + Number(item.rating || 0)) / commentsTotal.value) * 10) / 10
-		commentsLoaded.value = true
-		const spot = currentSpot.value
-		if (spot) {
-			spot.rating = commentsAvg.value
-			spot.rating_count = commentsTotal.value
-		}
-		resolveCommentAvatars([item])
-	}
-
-	// 在当前页为地点补充图片
+	// 在当前页为地点补充图片（一次最多 5 张，需审核）
 	function chooseSpotImages() {
 		const spot = currentSpot.value
 		if (!spot || !spot._id) return
-		const count = Math.max(1, 9 - ((spot.images && spot.images.length) || 0))
+		const count = Math.max(1, Math.min(5, 9 - ((spot.images && spot.images.length) || 0)))
 		uni.chooseImage({
 			count,
 			sizeType: ['compressed'],
@@ -556,9 +460,17 @@
 			title: '上传中...'
 		})
 		try {
+			const { ok, oversize } = await filterOversizeImages(filePaths)
+			if (oversize) {
+				uni.showToast({
+					title: '有 ' + oversize + ' 张图片超过 6MB，已跳过',
+					icon: 'none'
+				})
+			}
+			if (!ok.length) return
 			const ids = []
-			for (let i = 0; i < filePaths.length; i++) {
-				const filePath = filePaths[i]
+			for (let i = 0; i < ok.length; i++) {
+				const filePath = await compressImage(ok[i])
 				const ext = (filePath.split('.').pop() || 'jpg').toLowerCase()
 				const cloudPath = 'spots/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext
 				const up = await uniCloud.uploadFile({
@@ -575,20 +487,10 @@
 				await relogin()
 				res = await spotsObj.addImages(spotId, ids, getToken())
 			}
-			const merged = (res && res.images) || ids
-			if (currentSpot.value && currentSpot.value._id === spotId) {
-				currentSpot.value.images = merged
-			}
-			const inList = spots.value.find(s => s._id === spotId)
-			if (inList) {
-				inList.images = merged
-			}
-			await resolveSpotImages([{
-				images: merged
-			}])
+			// 提交成功后进入待审核，通过后图片才会展示
 			uni.showToast({
-				title: '已添加图片',
-				icon: 'success'
+				title: '已提交，等待审核',
+				icon: 'none'
 			})
 		} catch (err) {
 			uni.showToast({
@@ -599,26 +501,5 @@
 			uploadingImage.value = false
 			uni.hideLoading()
 		}
-	}
-
-	// 调起系统地图导航到该地点
-	function goHere() {
-		const spot = currentSpot.value
-		const longitude = Number(spot.longitude)
-		const latitude = Number(spot.latitude)
-		if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
-			uni.showToast({
-				title: '该地点缺少坐标',
-				icon: 'none'
-			})
-			return
-		}
-		uni.openLocation({
-			longitude,
-			latitude,
-			name: spot.name,
-			address: spot.address || spot.remark || '',
-			scale: 18
-		})
 	}
 </script>

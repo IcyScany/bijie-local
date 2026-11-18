@@ -45,9 +45,9 @@ module.exports = {
 		return mutation.submit(data, token)
 	},
 
-	// 管理员审核：通过或驳回
-	async review(id, status, token) {
-		return mutation.review(id, status, token)
+	// 管理员审核：通过 / 驳回（可带原因）/ 撤回驳回
+	async review(id, status, token, reason) {
+		return mutation.review(id, status, token, reason)
 	},
 
 	// 当前用户自己的贡献记录；options.type: all|new|update

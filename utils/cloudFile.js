@@ -38,10 +38,13 @@ export async function resolveCloudFiles(fileIDs) {
 						url: item.tempFileURL,
 						expire: now + CACHE_TTL
 					}
+				} else {
+					console.warn('[cloudFile] getTempFileURL 未返回临时链接', item)
 				}
 			})
 		} catch (e) {
-			// 转换失败时忽略，调用方可回退到占位
+			// 转换失败时忽略，调用方可回退到占位（开发期打印便于定位）
+			console.error('[cloudFile] getTempFileURL 失败', e, pending)
 		}
 	}
 

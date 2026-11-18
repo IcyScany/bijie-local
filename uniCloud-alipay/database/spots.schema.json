@@ -94,13 +94,16 @@
 		"report_type": {
 			"bsonType": "string",
 			"title": "提交类型",
-			"description": "new-新增地点，update-更新反馈",
+			"description": "new-新增地点，update-更新反馈，image-补充图片",
 			"enum": [{
 				"value": "new",
 				"text": "新增地点"
 			}, {
 				"value": "update",
 				"text": "更新反馈"
+			}, {
+				"value": "image",
+				"text": "补充图片"
 			}],
 			"defaultValue": "new"
 		},
@@ -120,11 +123,16 @@
 		},
 		"contributor_openid": {
 			"bsonType": "string",
-			"title": "贡献者OpenID"
+			"title": "共创者OpenID"
 		},
 		"contributor_name": {
 			"bsonType": "string",
-			"title": "贡献者名称",
+			"title": "共创者名称",
+			"trim": "both"
+		},
+		"reject_reason": {
+			"bsonType": "string",
+			"title": "驳回原因",
 			"trim": "both"
 		},
 		"updater_openid": {

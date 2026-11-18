@@ -37,8 +37,8 @@
 			<view class="menu-card" @click="goContributors">
 				<view class="menu-icon contributor">🏅</view>
 				<view class="menu-body">
-					<text class="menu-title">贡献者排行</text>
-					<text class="menu-desc">查看为地图贡献地点的用户</text>
+					<text class="menu-title">共创者排行</text>
+					<text class="menu-desc">查看为地图共创地点的用户</text>
 				</view>
 				<text class="menu-arrow">›</text>
 			</view>
@@ -49,7 +49,7 @@
 		<view v-if="showProfile" class="mask">
 			<view class="profile-card">
 				<text class="profile-title">完善你的资料</text>
-				<text class="profile-sub">设置头像和昵称，让贡献记录更清晰</text>
+				<text class="profile-sub">设置头像和昵称，让共创记录更清晰</text>
 
 				<button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
 					<image v-if="avatarUrl" class="avatar-img" :src="avatarUrl" mode="aspectFill" />
@@ -83,6 +83,7 @@
 		getUserInfo,
 		getToken
 	} from '@/utils/auth.js'
+	import { compressImage, getFileSize, MAX_IMAGE_SIZE } from '@/utils/image.js'
 
 	const instance = getCurrentInstance()
 
@@ -162,10 +163,19 @@
 		try {
 			let avatar = avatarUrl.value
 			if (avatarChanged.value && avatar) {
-				const ext = (avatar.split('.').pop() || 'png').split('?')[0]
+				const size = await getFileSize(avatar)
+				if (size > MAX_IMAGE_SIZE) {
+					uni.showToast({
+						title: '头像图片不能超过 6MB',
+						icon: 'none'
+					})
+					return
+				}
+				const compressed = await compressImage(avatar)
+				const ext = (compressed.split('.').pop() || 'png').split('?')[0]
 				const cloudPath = 'avatars/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext
 				const uploadRes = await uniCloud.uploadFile({
-					filePath: avatar,
+					filePath: compressed,
 					cloudPath
 				})
 				avatar = uploadRes.fileID
@@ -251,7 +261,7 @@
 		})
 	}
 
-	// 打开贡献者排行页面
+	// 打开共创者排行页面
 	function goContributors() {
 		uni.navigateTo({
 			url: '/pages/contributors/contributors'

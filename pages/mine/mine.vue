@@ -14,34 +14,48 @@
 
 		<view class="stats">
 			<view class="stat">
-				<text class="stat-num">{{ user.contributionCount || 0 }}</text>
-				<text class="stat-label">贡献次数</text>
+				<text class="stat-num">{{ user.contributionPoints || 0 }}</text>
+				<text class="stat-label">共创积分</text>
 			</view>
 			<view class="stat">
 				<text class="stat-num date">{{ formatDate(user.lastContributionDate) }}</text>
-				<text class="stat-label">最近贡献</text>
+				<text class="stat-label">最近共创</text>
 			</view>
 		</view>
 
 		<!-- 管理员菜单（仅管理员可见） -->
 		<view v-if="user.isAdmin" class="menu">
-			<view class="menu-item" @click="goAdmins">
-				<text class="menu-label">管理权限</text>
+			<view class="menu-item" @click="goReview">
+				<view class="menu-left">
+					<text class="menu-label">审核管理</text>
+					<text class="menu-tag">管理员</text>
+					<text v-if="pendingCount" class="menu-badge">{{ pendingCount > 99 ? '99+' : pendingCount }}</text>
+				</view>
 				<text class="menu-arrow">›</text>
 			</view>
-			<view class="menu-item" @click="goAdmin">
-				<text class="menu-label">地点管理</text>
+			<view class="menu-item" @click="goSpots">
+				<view class="menu-left">
+					<text class="menu-label">地点管理</text>
+					<text class="menu-tag">管理员</text>
+				</view>
+				<text class="menu-arrow">›</text>
+			</view>
+			<view class="menu-item" @click="goAdmins">
+				<view class="menu-left">
+					<text class="menu-label">管理权限</text>
+					<text class="menu-tag">管理员</text>
+				</view>
 				<text class="menu-arrow">›</text>
 			</view>
 		</view>
 
 		<view class="menu">
 			<view class="menu-item" @click="goContributions">
-				<text class="menu-label">我的贡献</text>
+				<text class="menu-label">我的共创</text>
 				<text class="menu-arrow">›</text>
 			</view>
 			<view class="menu-item" @click="goContributors">
-				<text class="menu-label">贡献者排行</text>
+				<text class="menu-label">共创者排行</text>
 				<text class="menu-arrow">›</text>
 			</view>
 		</view>
@@ -66,7 +80,7 @@
 		<view v-if="showProfile" class="mask">
 			<view class="profile-card">
 				<text class="profile-title">完善你的资料</text>
-				<text class="profile-sub">设置头像和昵称，让贡献记录更清晰</text>
+				<text class="profile-sub">设置头像和昵称，让共创记录更清晰</text>
 
 				<button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
 					<image v-if="avatarUrl" class="avatar-img" :src="avatarUrl" mode="aspectFill" />
@@ -94,8 +108,9 @@
 <script setup>
 	import { ref, getCurrentInstance } from 'vue'
 	import { onShow } from '@dcloudio/uni-app'
-	import { ensureLogin, getUserInfo, getToken } from '@/utils/auth.js'
+	import { ensureLogin, getUserInfo, getToken, isAdmin } from '@/utils/auth.js'
 	import { resolveCloudFile } from '@/utils/cloudFile.js'
+	import { compressImage, getFileSize, MAX_IMAGE_SIZE } from '@/utils/image.js'
 
 	const instance = getCurrentInstance()
 
@@ -103,12 +118,20 @@
 		customUI: true
 	})
 
+	const spotsObj = uniCloud.importObject('spots', {
+		customUI: true
+	})
+
+	// 待审核数量（仅管理员）
+	const pendingCount = ref(0)
+
 	const favorites = ref([])
 
 	const user = ref({
 		nickname: '',
 		avatar: '',
 		contributionCount: 0,
+		contributionPoints: 0,
 		lastContributionDate: 0,
 		isAdmin: false
 	})
@@ -123,7 +146,26 @@
 	onShow(() => {
 		loadProfile()
 		loadFavorites()
+		loadPendingCount()
 	})
+
+	// 加载待审核数量（仅管理员显示）
+	async function loadPendingCount() {
+		if (!isAdmin()) {
+			pendingCount.value = 0
+			return
+		}
+		try {
+			const res = await spotsObj.getList({
+				status: 'pending',
+				page: 1,
+				pageSize: 1
+			})
+			pendingCount.value = res.total || 0
+		} catch (e) {
+			pendingCount.value = 0
+		}
+	}
 
 	// 加载收藏地点列表
 	async function loadFavorites() {
@@ -148,7 +190,7 @@
 		})
 	}
 
-	// 加载当前用户资料与贡献统计
+	// 加载当前用户资料与共创统计
 	async function loadProfile() {
 		try {
 			await ensureLogin()
@@ -174,6 +216,7 @@
 				nickname: info.nickname || '',
 				avatar: info.avatar || '',
 				contributionCount: 0,
+				contributionPoints: 0,
 				lastContributionDate: 0,
 				isAdmin: false
 			}
@@ -267,7 +310,15 @@
 		try {
 			let avatar = ''
 			if (avatarChanged.value && avatarUrl.value) {
-				const filePath = avatarUrl.value
+				const size = await getFileSize(avatarUrl.value)
+				if (size > MAX_IMAGE_SIZE) {
+					uni.showToast({
+						title: '头像图片不能超过 6MB',
+						icon: 'none'
+					})
+					return
+				}
+				const filePath = await compressImage(avatarUrl.value)
 				const ext = (filePath.split('.').pop() || 'png').split('?')[0]
 				const cloudPath = 'avatars/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext
 				const uploadRes = await uniCloud.uploadFile({
@@ -320,9 +371,15 @@
 		}
 	}
 
-	function goAdmin() {
+	function goReview() {
 		uni.navigateTo({
 			url: '/pages/admin/review'
+		})
+	}
+
+	function goSpots() {
+		uni.navigateTo({
+			url: '/pages/admin/spots'
 		})
 	}
 
@@ -411,7 +468,7 @@
 		border: 2rpx solid rgba(255, 255, 255, 0.85);
 		border-radius: $radius-pill;
 		transition: all $duration-fast ease;
-		
+
 		&:active {
 			transform: scale(0.95);
 			opacity: 0.9;
@@ -470,7 +527,7 @@
 		padding: $space-lg;
 		border-bottom: 1rpx solid $border-color;
 		transition: all $duration-fast ease;
-		
+
 		&:active {
 			background-color: $bg-fill;
 		}
@@ -484,6 +541,35 @@
 		font-size: 30rpx;
 		font-weight: 500;
 		color: $text-main;
+	}
+
+	.menu-left {
+		display: flex;
+		align-items: center;
+	}
+
+	.menu-tag {
+		margin-left: 12rpx;
+		padding: 2rpx 12rpx;
+		font-size: 20rpx;
+		font-weight: 500;
+		line-height: 1.6;
+		color: $brand;
+		background-color: rgba(0, 123, 139, 0.1);
+		border-radius: $radius-pill;
+	}
+
+	.menu-badge {
+		margin-left: 12rpx;
+		min-width: 32rpx;
+		height: 32rpx;
+		line-height: 32rpx;
+		padding: 0 10rpx;
+		text-align: center;
+		font-size: 20rpx;
+		color: #FFFFFF;
+		background-color: #EA4335;
+		border-radius: 16rpx;
 	}
 
 	.menu-arrow {
@@ -627,7 +713,7 @@
 		overflow: hidden;
 		line-height: normal;
 		transition: all $duration-fast ease;
-		
+
 		&:active {
 			transform: scale(0.95);
 		}
@@ -664,7 +750,7 @@
 		background-color: $bg-fill;
 		border-radius: $radius-md;
 		transition: all $duration-fast ease;
-		
+
 		&:focus {
 			background-color: $bg-fill-hover;
 		}

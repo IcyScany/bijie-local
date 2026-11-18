@@ -1,19 +1,17 @@
 <template>
 	<view class="spot-detail-root">
 		<!-- 地点详情 -->
-		<view v-if="visible" class="gm-overlay gm-detail-overlay" @click="emit('close')">
-			<view class="gm-bottom-sheet spot-detail-sheet" :style="{ height: sheetHeight + 'vh' }" @click.stop>
-				<!-- 拖动条 -->
-				<view
-					class="gm-bottom-sheet-handle"
-					@touchstart="onDragStart"
-					@touchmove="onDragMove"
-					@touchend="onDragEnd"
-				>
-					<view class="gm-bottom-sheet-bar"></view>
-				</view>
-
-				<!-- 头部（固定）：名称 + 关闭 -->
+		<DragSheet
+			:visible="visible"
+			v-model:height="sheetHeight"
+			v-model:expanded="sheetExpanded"
+			:min-height="sheetMin"
+			:max-height="sheetMax"
+			@sheet-touchstart="emit('sheet-touching', true)"
+			@sheet-touchend="emit('sheet-touching', false)"
+		>
+			<template #header>
+				<!-- 头部：名称 + 关闭 -->
 				<view class="gm-flex" style="justify-content: space-between; align-items: flex-start; padding: 0 24rpx 16rpx;">
 					<view style="flex: 1; overflow: hidden;">
 						<text style="font-size: 36rpx; font-weight: 700; color: #202124; line-height: 1.3; display: block; word-break: break-all;">{{ spot.name }}</text>
@@ -31,11 +29,12 @@
 							</view>
 						</view>
 					</view>
-					<button class="gm-btn" style="width: 56rpx; height: 56rpx; min-width: 0; padding: 0; border-radius: 50%; background-color: #F1F3F4; color: #202124; font-size: 28rpx; line-height: 1; display: flex; align-items: center; justify-content: center;" @click="emit('close')">✕</button>
+					<button class="gm-btn" style="width: 56rpx; height: 56rpx; min-width: 0; padding: 0; border-radius: 50%; background-color: #F1F3F4; color: #202124; font-size: 28rpx; line-height: 1; display: flex; align-items: center; justify-content: center;" @click.stop="emit('close')">✕</button>
 				</view>
+			</template>
 
-				<!-- 滚动内容区 -->
-				<scroll-view style="flex: 1; height: 0; min-height: 0;" scroll-y :show-scrollbar="false">
+			<!-- 滚动内容区 -->
+			<scroll-view style="flex: 1; height: 0; min-height: 0;" :scroll-y="sheetExpanded" :show-scrollbar="false">
 					<!-- 内容区 -->
 					<view style="padding: 0 24rpx 24rpx;">
 						<!-- 快速操作按钮 -->
@@ -50,16 +49,33 @@
 								<app-icon icon="photoCamera" width="34rpx" style="margin-right: 8rpx;" />添加图片
 							</button>
 							<button class="gm-btn gm-btn-tonal" style="display: flex; align-items: center; justify-content: center; height: 68rpx; line-height: 1; padding: 0 26rpx; font-size: 27rpx;" @click="openFeedback">
-								<app-icon icon="rateReview" width="34rpx" style="margin-right: 8rpx;" />更新
+								<app-icon icon="rateReview" width="34rpx" style="margin-right: 8rpx;" />共创
 							</button>
 						</view>
 
-						<!-- 图片轮播区（有照片才展示） -->
-						<scroll-view v-if="images.length" style="width: 100%; height: 300rpx; white-space: nowrap; border-radius: 12rpx; overflow: hidden; margin-bottom: 24rpx;" scroll-x :show-scrollbar="false">
+						<!-- 图片：1 张铺满、2 张并排均分、3 张以上只占一行并横向滚动 -->
+						<image
+							v-if="images.length === 1"
+							class="spot-image-thumb spot-image-single"
+							:src="images[0]"
+							mode="aspectFill"
+							@click="emit('preview', 0)"
+						></image>
+						<view v-else-if="images.length === 2" class="spot-images-two">
 							<image
 								v-for="(img, i) in images"
 								:key="i"
-								style="width: 100%; height: 300rpx; display: inline-block; background-color: #F1F3F4;"
+								class="spot-image-thumb spot-image-half"
+								:src="img"
+								mode="aspectFill"
+								@click="emit('preview', i)"
+							></image>
+						</view>
+						<scroll-view v-else-if="images.length > 2" class="spot-images" scroll-x :show-scrollbar="false">
+							<image
+								v-for="(img, i) in images"
+								:key="i"
+								class="spot-image-thumb"
 								:src="img"
 								mode="aspectFill"
 								@click="emit('preview', i)"
@@ -92,7 +108,7 @@
 
 							<view v-if="spot.contributor_name" class="gm-flex" style="align-items: center; margin-bottom: 20rpx; padding-bottom: 20rpx; border-bottom: 1rpx solid #E8EAED;">
 								<app-icon icon="photoCamera" size="md" style="margin-right: 16rpx; flex-shrink: 0;" />
-								<text class="gm-font-md gm-text-primary gm-flex-1">{{ spot.contributor_name }} 贡献</text>
+								<text class="gm-font-md gm-text-primary gm-flex-1">由 {{ spot.contributor_name }} 共创</text>
 								<text style="font-size: 24rpx; color: #9AA0A6;">›</text>
 							</view>
 
@@ -127,6 +143,7 @@
 										<view class="gm-stars gm-stars-sm">
 											<text v-for="n in 5" :key="n" class="gm-star" :class="{ 'gm-star-filled': n <= c.rating }">★</text>
 										</view>
+										<app-icon v-if="canRemoveComment(c)" class="comment-del" icon="delete" size="lg" color="error" clickable @click="deleteComment(c)" />
 									</view>
 									<!-- 评论内容 -->
 									<text class="gm-font-sm gm-text-regular" style="display: block; line-height: 1.5; word-break: break-all;">{{ c.content }}</text>
@@ -141,8 +158,7 @@
 						<view style="height: 40rpx;"></view>
 					</view>
 				</scroll-view>
-			</view>
-		</view>
+		</DragSheet>
 
 		<!-- 写评价弹窗 -->
 		<view v-if="composerVisible" class="gm-overlay gm-overlay-center" @click="closeComposer">
@@ -171,6 +187,7 @@
 			<view class="gm-dialog" @click.stop>
 				<text class="gm-dialog-title">反馈问题</text>
 				<textarea class="gm-textarea gm-mt-md" v-model="feedbackText" placeholder="如：摊位已搬迁到对面 / 信息有误…" maxlength="300" />
+				<view class="feedback-more" @click="goDetailedUpdate">跳转到更新页面，填写更多信息</view>
 				<view class="gm-flex gm-mt-lg" style="gap: 12rpx;">
 					<button class="gm-btn gm-btn-text gm-flex-1" style="font-size: 26rpx; padding: 0 16rpx; height: 80rpx; line-height: 80rpx;" @click="closeFeedback">取消</button>
 					<button class="gm-btn gm-btn-filled gm-flex-1" style="font-size: 26rpx; padding: 0 16rpx; height: 80rpx; line-height: 80rpx;" :disabled="submittingFeedback" @click="submitFeedback">{{ submittingFeedback ? '提交中...' : '提交反馈' }}</button>
@@ -182,9 +199,10 @@
 
 <script setup>
 	import { ref, watch, onMounted } from 'vue'
-	import { ensureLogin, getToken, isAuthError, relogin } from '@/utils/auth.js'
+	import { ensureLogin, getToken, isAuthError, relogin, isAdmin, getOpenid } from '@/utils/auth.js'
 	import { getTypeLabel, getTypeColor, getTypeBg } from '@/utils/placeTypes.js'
 	import AppIcon from '@/components/AppIcon.vue'
+	import DragSheet from '@/components/DragSheet.vue'
 
 	const spotsObj = uniCloud.importObject('spots', {
 		customUI: true
@@ -233,10 +251,15 @@
 		favorite: {
 			type: Boolean,
 			default: false
+		},
+		// 打开时是否直接展开到最大高度（列表进入为 true，地图点选为 false）
+		full: {
+			type: Boolean,
+			default: false
 		}
 	})
 
-	const emit = defineEmits(['close', 'preview', 'route', 'comment-added', 'favorite', 'addImage'])
+	const emit = defineEmits(['close', 'preview', 'route', 'comment-added', 'comment-removed', 'favorite', 'addImage', 'sheet-touching'])
 
 	// 标签：overview | reviews
 	const activeTab = ref('overview')
@@ -244,23 +267,9 @@
 	// 面板高度：默认半屏，可上滑展开
 	// 范围与地图列表一致：最高到筛选栏下方；最低露出到操作按钮
 	const sheetHeight = ref(50)
-	const dragging = ref(false)
-	let dragStartY = 0
-	let dragStartHeight = 50
-	let winHeight = 0
-	let sheetMin = 40
-	let sheetMax = 90
-
-	function getWinHeight() {
-		if (winHeight) return winHeight
-		try {
-			const info = uni.getWindowInfo ? uni.getWindowInfo() : uni.getSystemInfoSync()
-			winHeight = info.windowHeight || 667
-		} catch (e) {
-			winHeight = 667
-		}
-		return winHeight
-	}
+	const sheetExpanded = ref(false)
+	const sheetMin = ref(40)
+	const sheetMax = ref(90)
 
 	function measureRange() {
 		let info = {}
@@ -278,54 +287,20 @@
 		// 最低：露出到操作按钮
 		const minPx = 330 * rpxToPx
 		const minVh = Math.max(16, (minPx / winH) * 100)
-		sheetMax = Math.round(maxVh * 10) / 10
-		sheetMin = Math.min(Math.round(minVh * 10) / 10, sheetMax - 5)
-	}
-
-	function clampHeight(h) {
-		return Math.min(sheetMax, Math.max(sheetMin, h))
+		sheetMax.value = Math.round(maxVh * 10) / 10
+		sheetMin.value = Math.min(Math.round(minVh * 10) / 10, sheetMax.value - 5)
 	}
 
 	onMounted(measureRange)
 
-	function onDragStart(e) {
-		dragging.value = true
-		dragStartY = e.touches[0].clientY
-		dragStartHeight = sheetHeight.value
-		getWinHeight()
-	}
-
-	function onDragMove(e) {
-		if (!dragging.value) return
-		const dy = dragStartY - e.touches[0].clientY
-		const h = dragStartHeight + (dy / getWinHeight()) * 100
-		sheetHeight.value = clampHeight(h)
-	}
-
-	function onDragEnd() {
-		if (!dragging.value) return
-		dragging.value = false
-		const mid = (sheetMin + sheetMax) / 2
-		const candidates = [sheetMin, mid, sheetMax]
-		const h = sheetHeight.value
-		let nearest = candidates[0]
-		let best = Infinity
-		candidates.forEach(c => {
-			const d = Math.abs(c - h)
-			if (d < best) {
-				best = d
-				nearest = c
-			}
-		})
-		sheetHeight.value = Math.round(nearest * 10) / 10
-	}
-
 	watch(() => props.visible, (v) => {
 		if (v) {
 			measureRange()
-			sheetHeight.value = clampHeight(50)
+			// 列表进入：直接全屏展开；地图点选：半屏
+			sheetHeight.value = props.full ?
+				sheetMax.value :
+				Math.min(sheetMax.value, Math.max(sheetMin.value, 50))
 			activeTab.value = 'overview'
-			dragging.value = false
 		}
 	})
 
@@ -358,6 +333,45 @@
 
 	function commentAvatarText(name) {
 		return name ? String(name).charAt(0) : '用'
+	}
+
+	// 是否可删除该条评价（本人或管理员）
+	function canRemoveComment(item) {
+		if (!item || !item.openid) return false
+		return item.openid === getOpenid() || isAdmin()
+	}
+
+	// 删除评价（二次确认，仅本人或管理员）
+	function deleteComment(item) {
+		if (!item || !item._id) return
+		const id = item._id
+		uni.showModal({
+			title: '删除评价',
+			content: '确定删除这条评价吗？',
+			success: async (res) => {
+				if (!res.confirm) return
+				try {
+					await ensureLogin()
+					try {
+						await commentObj.remove(id, getToken())
+					} catch (err) {
+						if (!isAuthError(err)) throw err
+						await relogin()
+						await commentObj.remove(id, getToken())
+					}
+					emit('comment-removed', id)
+					uni.showToast({
+						title: '已删除',
+						icon: 'success'
+					})
+				} catch (err) {
+					uni.showToast({
+						title: (err && (err.errMsg || err.message)) || '删除失败',
+						icon: 'none'
+					})
+				}
+			}
+		})
 	}
 
 	function ratingText(v) {
@@ -528,21 +542,79 @@
 			submittingFeedback.value = false
 		}
 	}
+
+	// 跳转到「补充/更新」页的详细更新表单，带上当前地点与已填写的反馈
+	function goDetailedUpdate() {
+		const spot = props.spot
+		if (!spot || !spot._id) return
+		uni.setStorageSync('contribute_prefill', {
+			mode: 'update',
+			target_id: spot._id,
+			name: spot.name,
+			type: spot.type,
+			address: spot.address || '',
+			longitude: spot.longitude,
+			latitude: spot.latitude,
+			reason: String(feedbackText.value || '').trim()
+		})
+		feedbackVisible.value = false
+		uni.switchTab({
+			url: '/pages/contribute/contribute'
+		})
+	}
 </script>
 
 <style lang="scss" scoped>
-	.spot-detail-sheet {
+	/* 图片：1 张铺满、2 张并排均分、3 张以上只占一行并横向滚动 */
+	.spot-images {
 		width: 100%;
-		display: flex;
-		flex-direction: column;
-		animation: gm-slide-up 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+		white-space: nowrap;
+		margin-bottom: 16rpx;
 	}
 
-	/* 详情背景不模糊、不变灰，保持原样 */
-	.gm-detail-overlay {
-		background-color: transparent;
-		backdrop-filter: none;
-		-webkit-backdrop-filter: none;
+	.spot-image-thumb {
+		display: inline-block;
+		width: 226rpx;
+		height: 226rpx;
+		border-radius: 12rpx;
+		overflow: hidden;
+		background-color: #F1F3F4;
+		margin-right: 12rpx;
+		vertical-align: top;
+	}
+
+	/* 仅一张图：大图铺满内容区 */
+	.spot-image-single {
+		display: block;
+		width: 100%;
+		height: 552rpx;
+		border-radius: 16rpx;
+		margin-right: 0;
+	}
+
+	/* 两张图：并排均分 */
+	.spot-images-two {
+		display: flex;
+		width: 100%;
+		margin-bottom: 16rpx;
+	}
+
+	.spot-image-half {
+		flex: 1;
+		min-width: 0;
+		height: 265rpx;
+		margin-right: 12rpx;
+	}
+
+	.spot-image-half:last-child {
+		margin-right: 0;
+	}
+
+	/* 反馈弹窗：跳转详细更新链接 */
+	.feedback-more {
+		margin-top: 16rpx;
+		font-size: 26rpx;
+		color: #1A73E8;
 	}
 
 	/* 评分（与列表保持一致） */
@@ -588,5 +660,11 @@
 	/* 自定义组件内的 button 不受全局样式隔离影响，需在本组件内单独去除默认 ::after 边框 */
 	button::after {
 		border: none;
+	}
+
+	/* 评价删除按钮 */
+	.comment-del {
+		flex-shrink: 0;
+		margin-left: 16rpx;
 	}
 </style>

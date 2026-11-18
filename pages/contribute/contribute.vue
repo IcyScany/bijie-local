@@ -43,9 +43,10 @@
 				<view v-else>
 					<view class="field">
 						<text class="label">要更新的地点 *</text>
-						<picker :range="spotNames" @change="onTargetChange">
-							<view class="picker">{{ targetIndex > -1 ? spotNames[targetIndex] : '请选择地点' }}</view>
-						</picker>
+						<view class="picker picker-select" @click="openSpotPicker">
+							<text :class="{ 'picker-placeholder': targetIndex < 0 }">{{ targetIndex > -1 ? spotNames[targetIndex] : '请选择地点' }}</text>
+							<text class="picker-arrow">›</text>
+						</view>
 					</view>
 
 					<view class="field">
@@ -73,22 +74,47 @@
 					<input class="input" v-model="form.contact" placeholder="便于核实问题" />
 				</view>
 
-				<text class="tips">提交后需管理员审核通过才会展示在地图上，感谢你的贡献！</text>
+				<text class="tips">提交后需管理员审核通过才会展示在地图上，感谢你的共创！</text>
 			</view>
 		</scroll-view>
 
 		<view class="submit-bar">
 			<button class="submit" :disabled="submitting" @click="submit">{{ submitting ? '提交中...' : '提交审核' }}</button>
 		</view>
+
+		<!-- 选择地点弹窗（带搜索） -->
+		<view v-if="spotPickerVisible" class="spot-mask" @click="closeSpotPicker">
+			<view class="spot-panel" @click.stop>
+				<view class="spot-panel-head">
+					<text class="spot-panel-title">选择要更新的地点</text>
+					<text class="spot-panel-close" @click="closeSpotPicker">✕</text>
+				</view>
+				<input class="spot-search" v-model="spotKeyword" placeholder="搜索地点名称或地址" confirm-type="search" />
+				<scroll-view class="spot-list" scroll-y>
+					<view
+						v-for="item in filteredSpots"
+						:key="item._id"
+						class="spot-option"
+						:class="{ 'spot-option-active': targetIndex > -1 && spots[targetIndex] && spots[targetIndex]._id === item._id }"
+						@click="selectSpot(item)"
+					>
+						<text class="spot-option-name">{{ item.name }}</text>
+						<text v-if="item.address" class="spot-option-addr">{{ item.address }}</text>
+					</view>
+					<view v-if="!filteredSpots.length" class="spot-empty">未找到地点</view>
+				</scroll-view>
+			</view>
+		</view>
 	</view>
 </template>
 
 <script setup>
 	import { ref, computed } from 'vue'
-	import { onLoad } from '@dcloudio/uni-app'
+	import { onLoad, onShow } from '@dcloudio/uni-app'
 	import { getToken } from '@/utils/auth.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
 	import { PLACE_TYPES, getTypeLabel } from '@/utils/placeTypes.js'
+	import { compressImage, filterOversizeImages } from '@/utils/image.js'
 
 	const spotsObj = uniCloud.importObject('spots', {
 		customUI: true
@@ -111,6 +137,20 @@
 	})
 	const spots = ref([])
 	const targetIndex = ref(-1)
+	// 从详情页跳转过来时待选中的地点 id
+	const pendingTargetId = ref('')
+	// 地点选择弹窗
+	const spotPickerVisible = ref(false)
+	const spotKeyword = ref('')
+	const filteredSpots = computed(() => {
+		const list = spots.value || []
+		const kw = spotKeyword.value.trim().toLowerCase()
+		if (!kw) return list
+		return list.filter(item => {
+			const text = `${item.name || ''} ${item.address || ''}`.toLowerCase()
+			return text.indexOf(kw) !== -1
+		})
+	})
 	const submitting = ref(false)
 	const uploading = ref(false)
 	const imageMap = ref({})
@@ -139,6 +179,32 @@
 		loadSpots()
 	})
 
+	// 从地点详情「详细更新」跳转过来时，预填地点与已填写的反馈
+	onShow(() => {
+		let prefill = null
+		try {
+			prefill = uni.getStorageSync('contribute_prefill')
+		} catch (e) {}
+		if (!prefill) return
+		uni.removeStorageSync('contribute_prefill')
+		reportType.value = 'update'
+		if (prefill.reason) {
+			form.value.report_reason = prefill.reason
+		}
+		pendingTargetId.value = prefill.target_id || ''
+		applyTarget()
+	})
+
+	// 按 pendingTargetId 选中对应地点
+	function applyTarget() {
+		if (!pendingTargetId.value) return
+		const idx = (spots.value || []).findIndex(item => item._id === pendingTargetId.value)
+		if (idx >= 0) {
+			targetIndex.value = idx
+			pendingTargetId.value = ''
+		}
+	}
+
 	function showError(err) {
 		const msg = (err && (err.errMsg || err.message)) || '操作失败'
 		uni.showToast({
@@ -160,6 +226,7 @@
 				pageSize: 200
 			})
 			spots.value = (res && res.list) || []
+			applyTarget()
 		} catch (err) {
 			showError(err)
 		}
@@ -176,6 +243,24 @@
 
 	function onTargetChange(e) {
 		targetIndex.value = Number(e.detail.value)
+	}
+
+	// 打开/关闭地点选择弹窗，选中后设置 targetIndex
+	function openSpotPicker() {
+		spotKeyword.value = ''
+		spotPickerVisible.value = true
+	}
+
+	function closeSpotPicker() {
+		spotPickerVisible.value = false
+	}
+
+	function selectSpot(item) {
+		const idx = (spots.value || []).findIndex(s => s._id === item._id)
+		if (idx >= 0) {
+			targetIndex.value = idx
+		}
+		spotPickerVisible.value = false
 	}
 
 	// 跳转地图选点页并将结果回填到表单
@@ -218,13 +303,21 @@
 	// 上传现场图片到云存储
 	async function uploadImages(filePaths) {
 		if (uploading.value) return
+		const { ok, oversize } = await filterOversizeImages(filePaths)
+		if (oversize) {
+			uni.showToast({
+				title: '有 ' + oversize + ' 张图片超过 6MB，已跳过',
+				icon: 'none'
+			})
+		}
+		if (!ok.length) return
 		uploading.value = true
 		uni.showLoading({
 			title: '上传中...'
 		})
 		try {
-			for (let i = 0; i < filePaths.length; i++) {
-				const filePath = filePaths[i]
+			for (let i = 0; i < ok.length; i++) {
+				const filePath = await compressImage(ok[i])
 				const ext = (filePath.split('.').pop() || 'jpg').toLowerCase()
 				const cloudPath = 'spots/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext
 				const uploadRes = await uniCloud.uploadFile({
@@ -355,33 +448,34 @@
 		background-color: $bg-page;
 	}
 
+	/* 顶部分段切换 */
 	.switch {
 		display: flex;
-		margin: $space-md $space-md 0;
-		padding: 8rpx;
-		background-color: $bg-fill;
-		border-radius: $radius-pill;
+		margin: 32rpx 32rpx 0;
+		padding: 6rpx;
+		background-color: #EDEFF2;
+		border-radius: 18rpx;
 	}
 
 	.switch-item {
 		flex: 1;
 		text-align: center;
-		padding: 18rpx 0;
-		font-size: $fs-md;
-		font-weight: 500;
-		color: $text-regular;
-		border-radius: $radius-pill;
-		transition: all $duration-fast ease;
-		
+		padding: 14rpx 0;
+		font-size: 26rpx;
+		color: $text-secondary;
+		border-radius: 14rpx;
+		transition: all 0.2s ease;
+
 		&:active {
-			opacity: 0.85;
+			opacity: 0.7;
 		}
 	}
 
 	.switch-item.active {
-		color: $text-inverse;
-		background-image: $brand-gradient;
-		box-shadow: $brand-shadow;
+		color: $text-main;
+		font-weight: 600;
+		background-color: #FFFFFF;
+		box-shadow: 0 2rpx 8rpx rgba(29, 33, 41, 0.08);
 	}
 
 	.form-scroll {
@@ -391,20 +485,20 @@
 	}
 
 	.form {
-		background-color: $bg-card;
-		margin: $space-md;
-		padding: $space-lg;
-		border-radius: $radius-lg;
-		box-shadow: $shadow-card;
+		margin: 24rpx;
+		padding: 28rpx 24rpx;
+		background-color: #FFFFFF;
+		border-radius: 24rpx;
+		box-shadow: 0 4rpx 20rpx rgba(29, 33, 41, 0.04);
 	}
 
 	.field {
-		margin-bottom: $space-md;
+		margin-bottom: 24rpx;
 	}
 
 	.field-row {
 		display: flex;
-		margin-bottom: $space-md;
+		margin-bottom: 44rpx;
 	}
 
 	.field-col {
@@ -412,107 +506,102 @@
 	}
 
 	.field-col:first-child {
-		margin-right: 20rpx;
+		margin-right: 24rpx;
 	}
 
 	.label {
 		display: block;
-		font-size: $fs-sm;
+		font-size: 24rpx;
 		font-weight: 500;
-		color: $text-regular;
-		margin-bottom: 12rpx;
+		color: #5F6368;
+		letter-spacing: 1rpx;
+		margin-bottom: 10rpx;
+	}
+
+	.input,
+	.picker,
+	.textarea {
+		color: #202124;
+		font-size: 28rpx;
+		background-color: #FFFFFF;
+		border: 1rpx solid #DADCE0;
+		border-radius: 10rpx;
+		box-sizing: border-box;
+		transition: border-color 0.2s ease;
 	}
 
 	.input {
-		height: 88rpx;
-		padding: 0 $space-md;
-		font-size: $fs-md;
-		color: $text-main;
-		background-color: $bg-fill;
-		border-radius: $radius-md;
-		transition: all $duration-fast ease;
-		
-		&:focus {
-			background-color: $bg-fill-hover;
-		}
+		height: 80rpx;
+		padding: 0 24rpx;
 	}
 
 	.picker {
-		height: 88rpx;
-		line-height: 88rpx;
-		padding: 0 $space-md;
-		font-size: $fs-md;
-		color: $text-main;
-		background-color: $bg-fill;
-		border-radius: $radius-md;
-		transition: all $duration-fast ease;
-		
-		&:active {
-			background-color: $bg-fill-hover;
-		}
+		height: 80rpx;
+		line-height: 80rpx;
+		padding: 0 24rpx;
 	}
 
 	.textarea {
 		width: 100%;
-		height: 168rpx;
-		padding: 20rpx $space-md;
-		font-size: $fs-md;
-		color: $text-main;
-		background-color: $bg-fill;
-		border-radius: $radius-md;
-		transition: all $duration-fast ease;
-		
-		&:focus {
-			background-color: $bg-fill-hover;
-		}
+		height: 150rpx;
+		padding: 20rpx 24rpx;
+		box-sizing: border-box;
 	}
 
+	.input:focus,
+	.textarea:focus {
+		border-color: #1A73E8;
+	}
+
+	/* 地图选点 */
 	.locate-btn {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: 88rpx;
-		font-size: $fs-md;
+		height: 80rpx;
+		font-size: 28rpx;
 		font-weight: 500;
-		color: $brand;
-		background-color: $brand-soft;
-		border-radius: $radius-md;
-		transition: all $duration-fast ease;
-		
+		color: #1A73E8;
+		background-color: #E8F0FE;
+		border-radius: 10rpx;
+		transition: opacity 0.2s ease;
+
 		&:active {
-			transform: scale(0.98);
+			opacity: 0.85;
 		}
 	}
 
 	.locate-icon {
-		margin-right: 8rpx;
+		margin-right: 10rpx;
 	}
 
 	.locate-tip {
 		display: block;
-		margin-top: 12rpx;
-		font-size: $fs-sm;
+		margin-top: 16rpx;
+		font-size: 24rpx;
 		color: $text-secondary;
 		line-height: 1.5;
 	}
 
+	/* 图片 */
 	.image-list {
 		display: flex;
 		flex-wrap: wrap;
+		margin-bottom: -16rpx;
 	}
 
 	.image-item {
 		position: relative;
-		width: 164rpx;
-		height: 164rpx;
+		width: 150rpx;
+		height: 150rpx;
 		margin: 0 16rpx 16rpx 0;
 	}
 
 	.image-thumb {
-		width: 164rpx;
-		height: 164rpx;
-		border-radius: $radius-sm;
-		background-color: $bg-fill;
+		width: 150rpx;
+		height: 150rpx;
+		border-radius: 16rpx;
+		background-color: #F5F6F8;
 	}
 
 	.image-remove {
@@ -521,75 +610,180 @@
 		right: -12rpx;
 		width: 44rpx;
 		height: 44rpx;
-		line-height: 38rpx;
+		line-height: 44rpx;
 		text-align: center;
-		font-size: $fs-lg;
-		color: #ffffff;
-		background-color: rgba(0, 0, 0, 0.65);
+		font-size: 28rpx;
+		color: #FFFFFF;
+		background-color: rgba(29, 33, 41, 0.7);
 		border-radius: 50%;
-		transition: all $duration-fast ease;
-		
-		&:active {
-			transform: scale(0.9);
-		}
 	}
 
 	.image-add {
-		width: 164rpx;
-		height: 164rpx;
+		width: 150rpx;
+		height: 150rpx;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		background-color: $bg-fill;
-		border: 2rpx dashed $border-strong;
-		border-radius: $radius-sm;
-		transition: all $duration-fast ease;
-		
+		background-color: #F5F6F8;
+		border-radius: 16rpx;
+		transition: background-color 0.2s ease;
+
 		&:active {
-			background-color: $bg-fill-hover;
+			background-color: #EEF0F3;
 		}
 	}
 
 	.image-add-icon {
-		font-size: 52rpx;
-		color: $text-placeholder;
+		font-size: 48rpx;
+		color: #B0B6BF;
 		line-height: 1;
 	}
 
 	.image-add-text {
 		margin-top: 8rpx;
-		font-size: $fs-sm;
+		font-size: 24rpx;
 		color: $text-secondary;
 	}
 
 	.tips {
 		display: block;
-		margin-top: 16rpx;
-		font-size: $fs-sm;
-		color: $warning;
+		margin-top: 0;
+		font-size: 22rpx;
+		color: $text-secondary;
 		line-height: 1.6;
 	}
 
+	/* 底部提交 */
 	.submit-bar {
-		padding: $space-md;
+		padding: 20rpx 28rpx;
 		padding-bottom: calc(24rpx + constant(safe-area-inset-bottom));
 		padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
-		background-color: $bg-card;
-		box-shadow: 0 -8rpx 24rpx rgba(29, 33, 41, 0.06);
+		background-color: transparent;
 	}
 
 	.submit {
-		font-size: $fs-lg;
+		height: 84rpx;
+		line-height: 84rpx;
+		font-size: 30rpx;
 		font-weight: 600;
-		color: $text-inverse;
-		background-image: $brand-gradient;
-		box-shadow: $brand-shadow;
-		border-radius: $radius-pill;
-		transition: all $duration-fast ease;
-		
+		color: #FFFFFF;
+		background-color: #1A73E8;
+		border-radius: 100rpx;
+		box-shadow: 0 4rpx 12rpx rgba(26, 115, 232, 0.2);
+		transition: opacity 0.2s ease;
+
 		&:active {
-			transform: scale(0.98);
+			opacity: 0.9;
 		}
+	}
+
+	/* 地点选择：下拉指示 */
+	.picker-select {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.picker-placeholder {
+		color: #9AA0A6;
+	}
+
+	.picker-arrow {
+		color: #9AA0A6;
+		font-size: 30rpx;
+		line-height: 1;
+	}
+
+	/* 地点选择弹窗 */
+	.spot-mask {
+		position: fixed;
+		left: 0;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		background-color: rgba(32, 33, 36, 0.45);
+		z-index: 999;
+		display: flex;
+		align-items: flex-end;
+	}
+
+	.spot-panel {
+		width: 100%;
+		max-height: 72vh;
+		background-color: #FFFFFF;
+		border-radius: 28rpx 28rpx 0 0;
+		padding: 28rpx 28rpx calc(28rpx + env(safe-area-inset-bottom));
+		box-sizing: border-box;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.spot-panel-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 20rpx;
+	}
+
+	.spot-panel-title {
+		font-size: 30rpx;
+		font-weight: 600;
+		color: #202124;
+	}
+
+	.spot-panel-close {
+		font-size: 30rpx;
+		color: #5F6368;
+		padding: 0 8rpx;
+	}
+
+	.spot-search {
+		height: 80rpx;
+		padding: 0 24rpx;
+		font-size: 28rpx;
+		color: #202124;
+		background-color: #F5F6F8;
+		border-radius: 12rpx;
+	}
+
+	.spot-list {
+		margin-top: 12rpx;
+		flex: 1;
+		height: 0;
+		min-height: 0;
+	}
+
+	.spot-option {
+		display: flex;
+		flex-direction: column;
+		padding: 22rpx 8rpx;
+		border-bottom: 1rpx solid #F0F1F3;
+	}
+
+	.spot-option:active {
+		background-color: #F8F9FA;
+	}
+
+	.spot-option-active {
+		background-color: #E8F0FE;
+	}
+
+	.spot-option-name {
+		font-size: 28rpx;
+		color: #202124;
+	}
+
+	.spot-option-addr {
+		margin-top: 6rpx;
+		font-size: 22rpx;
+		color: #5F6368;
+	}
+
+	.spot-empty {
+		text-align: center;
+		padding: 60rpx 0;
+		font-size: 26rpx;
+		color: #5F6368;
 	}
 </style>
