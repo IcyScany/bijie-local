@@ -66,6 +66,40 @@ async function requireAdmin(token, options = {}) {
 	return payload.openid
 }
 
+// 超级管理员：优先取标记 is_super 的管理员，否则取最早加入的第一个管理员
+async function getSuperAdmin() {
+	const col = db.collection('admin-whitelist')
+	const marked = await col.where({
+		is_super: true
+	}).limit(1).get()
+	if (marked.data && marked.data.length) {
+		return marked.data[0]
+	}
+	const first = await col.orderBy('create_date', 'asc').limit(1).get()
+	return (first.data && first.data[0]) || null
+}
+
+// 超级管理员 openid（无管理员时返回空串）
+async function getSuperAdminOpenid() {
+	const superAdmin = await getSuperAdmin()
+	return superAdmin ? superAdmin.openid : ''
+}
+
+// 判断某 openid 是否为超级管理员
+async function isSuperAdmin(openid) {
+	if (!openid) return false
+	return (await getSuperAdminOpenid()) === openid
+}
+
+// 校验超级管理员身份，通过则返回 openid
+async function requireSuperAdmin(token, options = {}) {
+	const openid = await requireAdmin(token, options)
+	if (!(await isSuperAdmin(openid))) {
+		throw new Error(options.message || '仅超级管理员可操作')
+	}
+	return openid
+}
+
 // 按 openid 查询用户记录，不存在返回 null
 async function getUserByOpenid(openid) {
 	const res = await db.collection('users').where({
@@ -89,6 +123,10 @@ module.exports = {
 	parseToken,
 	isWhitelisted,
 	requireAdmin,
+	getSuperAdmin,
+	getSuperAdminOpenid,
+	isSuperAdmin,
+	requireSuperAdmin,
 	getUserByOpenid,
 	resolveContributorName
 }

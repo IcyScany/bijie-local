@@ -2,7 +2,7 @@
 
 const db = uniCloud.database()
 
-// 共创者排行：按已通过审核的共创明细聚合积分（新增 10 / 更新 3）
+// 共创者排行：按已通过审核的共创明细聚合积分（新增 5 / 更新、补充图片 2）
 async function getContributors() {
 	const $ = db.command.aggregate
 	const res = await db.collection('contributions').aggregate()

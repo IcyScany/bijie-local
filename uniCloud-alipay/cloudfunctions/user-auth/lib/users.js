@@ -13,7 +13,8 @@ async function ensureAdmin(openid) {
 	if (countRes.total === 0) {
 		await whitelist.add({
 			openid,
-			name: '初始管理员',
+			name: '超级管理员',
+			is_super: true,
 			create_date: Date.now()
 		})
 		return true

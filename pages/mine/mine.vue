@@ -6,7 +6,7 @@
 
 			<view class="user-info">
 				<text class="nickname">{{ user.nickname || '未设置昵称' }}</text>
-				<text class="role">{{ user.isAdmin ? '管理员' : '普通用户' }}</text>
+				<text class="role">{{ user.isSuperAdmin ? '超级管理员' : (user.isAdmin ? '管理员' : '普通用户') }}</text>
 			</view>
 
 			<view class="edit-btn" @click="openProfile">编辑资料</view>
@@ -40,10 +40,10 @@
 				</view>
 				<text class="menu-arrow">›</text>
 			</view>
-			<view class="menu-item" @click="goAdmins">
+			<view v-if="user.isSuperAdmin" class="menu-item" @click="goAdmins">
 				<view class="menu-left">
-					<text class="menu-label">管理权限</text>
-					<text class="menu-tag">管理员</text>
+					<text class="menu-label">权限管理</text>
+					<text class="menu-tag">超级管理员</text>
 				</view>
 				<text class="menu-arrow">›</text>
 			</view>
@@ -133,7 +133,8 @@
 		contributionCount: 0,
 		contributionPoints: 0,
 		lastContributionDate: 0,
-		isAdmin: false
+		isAdmin: false,
+		isSuperAdmin: false
 	})
 
 	const showProfile = ref(false)
@@ -218,7 +219,8 @@
 				contributionCount: 0,
 				contributionPoints: 0,
 				lastContributionDate: 0,
-				isAdmin: false
+				isAdmin: false,
+				isSuperAdmin: false
 			}
 			refreshAvatar()
 		}

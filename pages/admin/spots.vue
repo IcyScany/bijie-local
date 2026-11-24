@@ -41,13 +41,12 @@
 					</view>
 				</view>
 
-				<scroll-view v-if="item.images && item.images.length" class="card-images" scroll-x :show-scrollbar="false">
-					<image v-for="(img, i) in item.images" :key="i" class="card-image" :src="imgUrl(img)" mode="aspectFill" @click="previewImages(item.images, i)"></image>
+				<scroll-view v-if="displayImages(item).length" class="card-images" scroll-x :show-scrollbar="false">
+					<image v-for="(url, i) in displayImages(item)" :key="i" class="card-image" :src="url" mode="aspectFill" @click="previewImages(displayImages(item), i)"></image>
 				</scroll-view>
 
 				<text v-if="item.address" class="card-line">地址：{{ item.address }}</text>
 				<text v-if="item.remark" class="card-line">备注：{{ item.remark }}</text>
-				<text v-if="item.longitude && item.latitude" class="card-line">坐标：{{ item.longitude }}, {{ item.latitude }}</text>
 				<text v-if="item.contributor_name" class="card-line">共创者：{{ item.contributor_name }}</text>
 
 				<view class="card-actions">
@@ -178,6 +177,14 @@
 		return id ? (imageMap.value[id] || '') : ''
 	}
 
+	// 优先使用服务端解析好的图片链接，回退到客户端解析结果
+	function displayImages(item) {
+		if (item && Array.isArray(item.image_urls) && item.image_urls.length) {
+			return item.image_urls
+		}
+		return (item && Array.isArray(item.images) ? item.images : []).map(imgUrl).filter(url => !!url)
+	}
+
 	async function resolveImages(ids) {
 		const pending = (ids || []).filter(id => typeof id === 'string' && id && !imageMap.value[id])
 		if (!pending.length) return
@@ -244,6 +251,7 @@
 				keyword: keyword.value,
 				type: filterType.value,
 				status: filterStatus.value,
+				withImages: true,
 				page: 1,
 				pageSize: 100
 			})
@@ -471,7 +479,8 @@
 	.toolbar {
 		display: flex;
 		align-items: center;
-		padding: $space-md;
+		flex-shrink: 0;
+		padding: 12rpx $space-md;
 		background-color: $bg-card;
 		box-shadow: $shadow-sm;
 	}
@@ -511,20 +520,21 @@
 
 	.filter-scroll {
 		width: 100%;
+		flex-shrink: 0;
 		white-space: nowrap;
 		background-color: $bg-card;
-		padding: 16rpx 0;
 	}
 
 	.filter {
-		display: inline-flex;
-		padding: 0 $space-md;
+		display: inline-block;
+		padding: 10rpx $space-md;
 	}
 
 	.filter-item {
-		flex-shrink: 0;
-		padding: 12rpx 30rpx;
-		margin-right: 16rpx;
+		display: inline-block;
+		vertical-align: top;
+		padding: 6rpx 20rpx;
+		margin-right: 12rpx;
 		font-size: $fs-sm;
 		font-weight: 500;
 		color: $text-main;
@@ -543,12 +553,13 @@
 
 	.status-bar {
 		display: flex;
-		padding: 16rpx $space-md 0;
+		flex-shrink: 0;
+		padding: 10rpx $space-md 0;
 	}
 
 	.status-item {
-		padding: 10rpx 26rpx;
-		margin-right: 16rpx;
+		padding: 6rpx 20rpx;
+		margin-right: 12rpx;
 		font-size: $fs-sm;
 		font-weight: 500;
 		color: $text-regular;
@@ -569,14 +580,14 @@
 
 	.list {
 		flex: 1;
-		padding: 20rpx 0;
+		padding: 8rpx 0;
 	}
 
 	.card {
 		background-color: $bg-card;
-		border-radius: $radius-lg;
-		padding: $space-md;
-		margin: 0 $space-md 20rpx;
+		border-radius: $radius-md;
+		padding: 16rpx;
+		margin: 0 $space-md 10rpx;
 		box-shadow: $shadow-card;
 		transition: all $duration-fast ease;
 
@@ -593,7 +604,7 @@
 	}
 
 	.card-name {
-		font-size: 32rpx;
+		font-size: 30rpx;
 		font-weight: 600;
 		color: $text-main;
 	}
@@ -606,9 +617,9 @@
 	.tag {
 		font-size: $fs-xs;
 		color: #ffffff;
-		padding: 6rpx 18rpx;
+		padding: 4rpx 14rpx;
 		border-radius: $radius-pill;
-		margin-right: 12rpx;
+		margin-right: 8rpx;
 		font-weight: 500;
 	}
 
@@ -627,7 +638,7 @@
 	.card-tag {
 		font-size: $fs-xs;
 		color: #ffffff;
-		padding: 6rpx 18rpx;
+		padding: 4rpx 14rpx;
 		border-radius: $radius-pill;
 		font-weight: 500;
 	}
@@ -635,13 +646,13 @@
 	.card-images {
 		width: 100%;
 		white-space: nowrap;
-		margin-top: 16rpx;
+		margin-top: 8rpx;
 	}
 
 	.card-image {
 		display: inline-block;
-		width: 168rpx;
-		height: 126rpx;
+		width: 120rpx;
+		height: 90rpx;
 		margin-right: 12rpx;
 		border-radius: $radius-sm;
 		background-color: $bg-fill;
@@ -649,22 +660,22 @@
 
 	.card-line {
 		display: block;
-		margin-top: 12rpx;
+		margin-top: 4rpx;
 		font-size: $fs-sm;
 		color: $text-secondary;
-		line-height: 1.5;
+		line-height: 1.4;
 	}
 
 	.card-actions {
 		display: flex;
 		justify-content: flex-end;
-		margin-top: 20rpx;
+		margin-top: 8rpx;
 	}
 
 	.action-btn {
 		font-size: $fs-sm;
 		font-weight: 500;
-		padding: 10rpx 30rpx;
+		padding: 8rpx 24rpx;
 		border-radius: $radius-pill;
 		margin-left: 16rpx;
 		transition: all $duration-fast ease;
@@ -693,8 +704,9 @@
 	}
 
 	.footer {
+		flex-shrink: 0;
 		text-align: center;
-		padding: 20rpx;
+		padding: 8rpx;
 		font-size: $fs-sm;
 		color: $text-secondary;
 	}

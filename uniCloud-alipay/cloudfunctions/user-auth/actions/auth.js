@@ -1,7 +1,7 @@
 'use strict'
 
 const db = uniCloud.database()
-const { createToken, parseToken, isWhitelisted, getUserByOpenid } = require('cloud-auth')
+const { createToken, parseToken, isWhitelisted, isSuperAdmin, getUserByOpenid } = require('cloud-auth')
 const { buildNickname, resolveOpenid } = require('../lib/wechat')
 const { ensureAdmin } = require('../lib/users')
 
@@ -61,6 +61,7 @@ async function login(event) {
 			token: createToken(openid),
 			openid,
 			isAdmin: admin,
+			isSuperAdmin: await isSuperAdmin(openid),
 			userInfo: {
 				nickname,
 				avatar: user.avatar || ''
@@ -106,6 +107,7 @@ async function check(event) {
 			code: 0,
 			data: {
 				isAdmin: false,
+				isSuperAdmin: false,
 				openid: ''
 			}
 		}
@@ -115,6 +117,7 @@ async function check(event) {
 		code: 0,
 		data: {
 			isAdmin: admin,
+			isSuperAdmin: await isSuperAdmin(payload.openid),
 			openid: payload.openid
 		}
 	}
@@ -146,7 +149,8 @@ async function getProfile(event) {
 			contributionCount: user.contribution_count || 0,
 			contributionPoints: user.contribution_points || 0,
 			lastContributionDate: user.last_contribution_date || 0,
-			isAdmin: admin
+			isAdmin: admin,
+			isSuperAdmin: await isSuperAdmin(payload.openid)
 		}
 	}
 }

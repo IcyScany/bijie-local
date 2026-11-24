@@ -5,7 +5,7 @@ const dbCmd = db.command
 const collection = db.collection('spots')
 const { parseToken } = require('cloud-auth')
 const { TYPE_LIST, TYPE_LABELS, STATUS_LIST, SOURCE_LIST } = require('./constants')
-const { attachRating, distanceMeters } = require('./helpers')
+const { attachRating, attachImageUrls, distanceMeters } = require('./helpers')
 
 // 分页查询地点列表，支持关键词、类型、审核状态、来源筛选与排序（rating/distance）
 async function getList(params = {}) {
@@ -69,6 +69,8 @@ async function getList(params = {}) {
 		if (params.withRating && list.length) {
 			await attachRating(list)
 		}
+		// 默认只解析首图（列表用）；withImages 为真时解析全部图片
+		await attachImageUrls(list, !params.withImages)
 		return {
 			list,
 			total: countRes.total,
@@ -104,8 +106,10 @@ async function getList(params = {}) {
 		})
 	}
 	const start = (page - 1) * pageSize
+	const pageList = list.slice(start, start + pageSize)
+	await attachImageUrls(pageList, !params.withImages)
 	return {
-		list: list.slice(start, start + pageSize),
+		list: pageList,
 		total: countRes.total,
 		page,
 		pageSize
@@ -118,8 +122,12 @@ async function getDetail(id) {
 		throw new Error('缺少地点ID')
 	}
 	const res = await collection.doc(id).get()
+	const spot = res.data && res.data[0] ? res.data[0] : null
+	if (spot) {
+		await attachImageUrls([spot], false)
+	}
 	return {
-		data: res.data && res.data[0] ? res.data[0] : null
+		data: spot
 	}
 }
 
@@ -139,6 +147,8 @@ async function listMyContributions(token, options = {}) {
 		where.report_type = 'new'
 	} else if (type === 'update') {
 		where.report_type = 'update'
+	} else if (type === 'image') {
+		where.report_type = 'image'
 	}
 	const countRes = await db.collection('contributions').where(where).count()
 	const listRes = await db.collection('contributions')

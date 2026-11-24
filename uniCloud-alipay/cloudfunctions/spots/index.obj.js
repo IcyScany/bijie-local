@@ -50,6 +50,11 @@ module.exports = {
 		return mutation.review(id, status, token, reason)
 	},
 
+	// 审核通过并发布（可带编辑后的地点信息）
+	async publish(id, data = {}, token) {
+		return mutation.publish(id, data, token)
+	},
+
 	// 当前用户自己的贡献记录；options.type: all|new|update
 	async listMyContributions(token, options = {}) {
 		return query.listMyContributions(token, options)

@@ -4,7 +4,10 @@
 			<view class="tab" :class="{ 'tab-active': activeType === 'all' }" @click="switchType('all')">全部</view>
 			<view class="tab" :class="{ 'tab-active': activeType === 'new' }" @click="switchType('new')">补充新地点</view>
 			<view class="tab" :class="{ 'tab-active': activeType === 'update' }" @click="switchType('update')">地点更新</view>
+			<view class="tab" :class="{ 'tab-active': activeType === 'image' }" @click="switchType('image')">补充图片</view>
 		</view>
+
+		<PointsRuleCard />
 
 		<view v-if="loading" class="hint">加载中...</view>
 		<view v-else-if="!list.length" class="hint">还没有共创记录</view>
@@ -16,7 +19,10 @@
 				</view>
 				<text class="item-name" v-if="item.spot_name">{{ item.spot_name }}</text>
 				<text class="item-reason" v-if="item.report_reason">{{ item.report_reason }}</text>
-				<text class="item-date">{{ formatDate(item.create_date) }}</text>
+				<view class="item-foot">
+					<text class="item-date">{{ formatDate(item.create_date) }}</text>
+					<text class="item-points" :class="'item-points-' + (item.status || 'pending')">{{ pointsText(item) }}</text>
+				</view>
 			</view>
 			<view class="end">已经到底啦</view>
 		</view>
@@ -28,17 +34,47 @@
 					<text class="detail-title">{{ actionText(detailItem.action) }}</text>
 					<text class="item-status" :class="'status-' + (detailItem.status || 'pending')">{{ statusText(detailItem.status) }}</text>
 				</view>
+				<scroll-view class="detail-body" scroll-y>
 				<view class="detail-row">
 					<text class="detail-label">地点</text>
 					<text class="detail-value">{{ detailItem.spot_name || '—' }}</text>
 				</view>
 				<view class="detail-row">
 					<text class="detail-label">类型</text>
-					<text class="detail-value">{{ detailItem.report_type === 'update' ? '更新反馈' : (detailItem.report_type === 'image' ? '补充图片' : '新增地点') }}</text>
+					<text class="detail-value">{{ reportTypeText(detailItem.report_type) }}</text>
+				</view>
+				<view class="detail-row">
+					<text class="detail-label">积分</text>
+					<text class="detail-value detail-points" :class="'item-points-' + (detailItem.status || 'pending')">{{ pointsText(detailItem) }}</text>
 				</view>
 				<view v-if="detailItem.report_reason" class="detail-row">
 					<text class="detail-label">说明</text>
 					<text class="detail-value">{{ detailItem.report_reason }}</text>
+				</view>
+				<view v-if="detailSpot && detailSpot.address" class="detail-row">
+					<text class="detail-label">地址</text>
+					<text class="detail-value">{{ detailSpot.address }}</text>
+				</view>
+				<view v-if="detailSpot && detailSpot.remark" class="detail-row">
+					<text class="detail-label">备注</text>
+					<text class="detail-value">{{ detailSpot.remark }}</text>
+				</view>
+				<view v-if="detailImages.length" class="detail-row">
+					<text class="detail-label">图片</text>
+					<view class="detail-images">
+						<image
+							v-for="(img, i) in detailImages"
+							:key="i"
+							class="detail-image"
+							:src="img"
+							mode="aspectFill"
+							@click="previewDetailImage(i)"
+						/>
+					</view>
+				</view>
+				<view v-if="detailSpot && detailSpot.reject_reason" class="detail-row">
+					<text class="detail-label">驳回原因</text>
+					<text class="detail-value detail-reject">{{ detailSpot.reject_reason }}</text>
 				</view>
 				<view class="detail-row">
 					<text class="detail-label">提交时间</text>
@@ -48,6 +84,7 @@
 					<text class="detail-label">更新时间</text>
 					<text class="detail-value">{{ formatDate(detailItem.update_date) }}</text>
 				</view>
+				</scroll-view>
 				<view class="detail-btn" @click="closeDetail">关闭</view>
 			</view>
 		</view>
@@ -58,6 +95,8 @@
 	import { ref } from 'vue'
 	import { onShow } from '@dcloudio/uni-app'
 	import { ensureLogin, getToken, isAuthError, relogin } from '@/utils/auth.js'
+	import { resolveCloudFiles } from '@/utils/cloudFile.js'
+	import PointsRuleCard from '@/components/PointsRuleCard.vue'
 
 	const spotsObj = uniCloud.importObject('spots', {
 		customUI: true
@@ -69,11 +108,60 @@
 
 	// 详情弹窗当前项
 	const detailItem = ref(null)
-	function openDetail(item) {
+	// 详情弹窗关联的提交/地点信息（异步加载）
+	const detailSpot = ref(null)
+	const detailImages = ref([])
+
+	// 打开详情：拉取关联提交的完整内容（地址、备注、图片、驳回原因）
+	async function openDetail(item) {
 		detailItem.value = item
+		detailSpot.value = null
+		detailImages.value = []
+		if (!item || !item.spot_id) return
+		try {
+			const res = await spotsObj.getDetail(item.spot_id)
+			if (detailItem.value !== item) return
+			const spot = (res && res.data) || null
+			detailSpot.value = spot
+			// 优先使用服务端解析好的图片链接，回退到客户端解析
+			if (spot && Array.isArray(spot.image_urls) && spot.image_urls.length) {
+				detailImages.value = spot.image_urls.slice()
+			} else {
+				const ids = (spot && Array.isArray(spot.images)) ? spot.images : []
+				if (ids.length) {
+					const map = await resolveCloudFiles(ids)
+					if (detailItem.value !== item) return
+					detailImages.value = ids.map(id => map[id] || '').filter(Boolean)
+				}
+			}
+		} catch (e) {
+			detailSpot.value = null
+		}
 	}
+
 	function closeDetail() {
 		detailItem.value = null
+		detailSpot.value = null
+		detailImages.value = []
+	}
+
+	// 预览详情图片
+	function previewDetailImage(index) {
+		if (!detailImages.value.length) return
+		uni.previewImage({
+			urls: detailImages.value,
+			current: index
+		})
+	}
+
+	function reportTypeText(type) {
+		if (type === 'update') return '更新反馈'
+		if (type === 'image') return '补充图片'
+		return '新增地点'
+	}
+
+	function pointsText(item) {
+		return '+' + (Number(item && item.points) || 0) + ' 分'
 	}
 
 	onShow(() => {
@@ -241,11 +329,34 @@
 		line-height: 1.5;
 	}
 
-	.item-date {
-		display: block;
+	.item-foot {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
 		margin-top: 10rpx;
+	}
+
+	.item-date {
 		font-size: $fs-xs;
 		color: $text-secondary;
+	}
+
+	.item-points {
+		font-size: $fs-sm;
+		font-weight: 600;
+	}
+
+	.item-points-approved {
+		color: $brand;
+	}
+
+	.item-points-pending {
+		color: $text-placeholder;
+	}
+
+	.item-points-rejected {
+		color: $text-disabled;
+		text-decoration: line-through;
 	}
 
 	.end {
@@ -273,6 +384,9 @@
 
 	.detail-card {
 		width: 100%;
+		max-height: 82vh;
+		display: flex;
+		flex-direction: column;
 		background-color: $bg-card;
 		border-radius: $radius-lg;
 		padding: $space-lg;
@@ -280,10 +394,17 @@
 		box-shadow: $shadow-card;
 	}
 
+	.detail-body {
+		flex: 1;
+		min-height: 0;
+		max-height: 64vh;
+	}
+
 	.detail-head {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		flex-shrink: 0;
 		margin-bottom: $space-md;
 	}
 
@@ -314,7 +435,30 @@
 		word-break: break-all;
 	}
 
+	.detail-points {
+		font-weight: 600;
+	}
+
+	.detail-reject {
+		color: $danger;
+	}
+
+	.detail-images {
+		flex: 1;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12rpx;
+	}
+
+	.detail-image {
+		width: 140rpx;
+		height: 140rpx;
+		border-radius: $radius-sm;
+		background-color: $bg-fill;
+	}
+
 	.detail-btn {
+		flex-shrink: 0;
 		margin-top: $space-md;
 		height: 80rpx;
 		line-height: 80rpx;

@@ -5,6 +5,10 @@
 			<text class="subtitle">感谢每一位为毕节生活地图共创地点的用户</text>
 		</view>
 
+		<view class="rule-wrap">
+			<PointsRuleCard />
+		</view>
+
 		<AppSkeleton v-if="loading" :count="6" />
 		<view v-else-if="!list.length" class="empty">暂无共创者，快去补充地点吧</view>
 		<scroll-view v-else class="list" scroll-y>
@@ -28,6 +32,7 @@
 	import { ref } from 'vue'
 	import { onLoad } from '@dcloudio/uni-app'
 	import AppSkeleton from '@/components/AppSkeleton.vue'
+	import PointsRuleCard from '@/components/PointsRuleCard.vue'
 
 	const list = ref([])
 	const loading = ref(false)
@@ -84,7 +89,7 @@
 	}
 
 	.header {
-		padding: 52rpx $space-lg $space-md;
+		padding: 52rpx $space-lg 0;
 		background: linear-gradient(180deg, $brand-soft 0%, $bg-page 100%);
 		animation: fadeIn 0.4s ease;
 	}
@@ -104,6 +109,10 @@
 		line-height: 1.5;
 	}
 
+	.rule-wrap {
+		padding: 0 $space-lg;
+	}
+
 	.list {
 		flex: 1;
 		height: 0;
@@ -120,7 +129,7 @@
 		margin: 0 $space-md $space-sm;
 		box-shadow: $shadow-card;
 		transition: all $duration-fast ease;
-		
+
 		&:active {
 			transform: translateY(2rpx);
 			box-shadow: $shadow-sm;

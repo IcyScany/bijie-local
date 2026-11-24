@@ -11,7 +11,7 @@
 					<text class="admin-openid">{{ item.openid }}</text>
 					<text class="admin-date">加入时间：{{ formatDate(item.create_date) }}</text>
 				</view>
-				<text class="admin-remove" @click="confirmRemove(item)">移除</text>
+				<text v-if="!item.is_super" class="admin-remove" @click="confirmRemove(item)">移除</text>
 			</view>
 			<view v-if="!admins.length" class="empty">暂无管理员</view>
 		</view>
@@ -28,7 +28,7 @@
 <script setup>
 	import { ref } from 'vue'
 	import { onShow } from '@dcloudio/uni-app'
-	import { ensureLogin, getToken, isAuthError, relogin } from '@/utils/auth.js'
+	import { ensureLogin, getToken, isAuthError, relogin, isSuperAdmin } from '@/utils/auth.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
 
 	const admins = ref([])
@@ -36,7 +36,18 @@
 	const newOpenid = ref('')
 	const adding = ref(false)
 
-	onShow(() => {
+	onShow(async () => {
+		await ensureLogin().catch(() => {})
+		if (!isSuperAdmin()) {
+			uni.showToast({
+				title: '仅超级管理员可访问',
+				icon: 'none'
+			})
+			setTimeout(() => {
+				uni.navigateBack()
+			}, 800)
+			return
+		}
 		loadAdmins()
 	})
 

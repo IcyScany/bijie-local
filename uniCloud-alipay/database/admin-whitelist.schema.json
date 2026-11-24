@@ -21,6 +21,11 @@
 			"title": "备注名称",
 			"trim": "both"
 		},
+		"is_super": {
+			"bsonType": "bool",
+			"title": "是否超级管理员",
+			"description": "初始化时自动产生的首位管理员为超级管理员，不可移除"
+		},
 		"create_date": {
 			"bsonType": "timestamp",
 			"title": "创建时间",

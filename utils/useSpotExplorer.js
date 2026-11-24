@@ -17,6 +17,10 @@ export function useSpotExplorer(options = {}) {
 		customUI: true
 	})
 
+	const spotsObj = uniCloud.importObject('spots', {
+		customUI: true
+	})
+
 	const imageMap = ref({})
 	const center = ref(Object.assign({}, DEFAULT_CENTER))
 	const scale = ref(13)
@@ -35,7 +39,11 @@ export function useSpotExplorer(options = {}) {
 	const commentAvatarMap = ref({})
 
 	const currentImages = computed(() => {
-		const imgs = Array.isArray(currentSpot.value.images) ? currentSpot.value.images : []
+		const spot = currentSpot.value
+		if (spot && Array.isArray(spot.image_urls) && spot.image_urls.length) {
+			return spot.image_urls.slice()
+		}
+		const imgs = Array.isArray(spot && spot.images) ? spot.images : []
 		return imgs.map(id => imageMap.value[id] || '').filter(url => !!url)
 	})
 
@@ -196,6 +204,23 @@ export function useSpotExplorer(options = {}) {
 		selectedMarkerIndex.value = -1
 	}
 
+	// 列表只下发了首图，打开详情时按需向云端拉取该地点的全部图片链接
+	async function loadSpotImageUrls(spot) {
+		if (!spot || !spot._id) return
+		const id = spot._id
+		try {
+			const res = await spotsObj.getDetail(id)
+			const data = res && res.data
+			if (!data || !Array.isArray(data.image_urls)) return
+			spot.image_urls = data.image_urls
+			if (currentSpot.value && currentSpot.value._id === id) {
+				currentSpot.value = Object.assign({}, currentSpot.value, {
+					image_urls: data.image_urls
+				})
+			}
+		} catch (e) {}
+	}
+
 	// 定位到选中地点并弹出详情；source 为 'list' 时详情展开到最大
 	function focusSpot(index, source) {
 		detailFull.value = source === 'list'
@@ -213,6 +238,9 @@ export function useSpotExplorer(options = {}) {
 		const missing = (spot.images || []).some(id => id && !imageMap.value[id])
 		if (missing) {
 			resolveSpotImages([spot])
+		}
+		if (!(Array.isArray(spot.image_urls) && spot.image_urls.length)) {
+			loadSpotImageUrls(spot)
 		}
 		currentSpot.value = spot
 		selectedMarkerIndex.value = index

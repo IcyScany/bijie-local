@@ -1,11 +1,12 @@
 'use strict'
 
 const db = uniCloud.database()
-const { requireAdmin, getUserByOpenid } = require('cloud-auth')
+const { requireSuperAdmin, getSuperAdminOpenid, getUserByOpenid } = require('cloud-auth')
 
-// 管理员列表（仅管理员）
+// 管理员列表（仅超级管理员）
 async function listAdmins(event) {
-	await requireAdmin(event.token, { message: '无权限' })
+	await requireSuperAdmin(event.token, { message: '仅超级管理员可查看' })
+	const superOpenid = await getSuperAdminOpenid()
 	const res = await db.collection('admin-whitelist').orderBy('create_date', 'asc').get()
 	const rows = res.data || []
 	const openids = rows.map(item => item.openid)
@@ -20,11 +21,13 @@ async function listAdmins(event) {
 	}
 	const list = rows.map(item => {
 		const u = nameMap[item.openid]
+		const isSuper = !!superOpenid && item.openid === superOpenid
 		return {
 			openid: item.openid,
-			name: (u && u.nickname) || item.name || ('用户' + String(item.openid).slice(-4)),
+			name: isSuper ? '超级管理员' : ((u && u.nickname) || item.name || ('用户' + String(item.openid).slice(-4))),
 			remark: item.name || '',
 			avatar: (u && u.avatar) || '',
+			is_super: isSuper,
 			create_date: item.create_date || 0
 		}
 	})
@@ -36,9 +39,9 @@ async function listAdmins(event) {
 	}
 }
 
-// 添加管理员（仅管理员）：按 openid 加入白名单
+// 添加管理员（仅超级管理员）：按 openid 加入白名单
 async function addAdmin(event) {
-	await requireAdmin(event.token, { message: '无权限' })
+	await requireSuperAdmin(event.token, { message: '仅超级管理员可操作' })
 	const openid = String(event.openid || '').trim()
 	if (!openid) {
 		throw new Error('请输入用户 openid')
@@ -71,15 +74,18 @@ async function addAdmin(event) {
 	}
 }
 
-// 移除管理员（仅管理员，且不能移除自己）
+// 移除管理员（仅超级管理员，且不能移除自己或超级管理员）
 async function removeAdmin(event) {
-	const currentOpenid = await requireAdmin(event.token, { message: '无权限' })
+	const currentOpenid = await requireSuperAdmin(event.token, { message: '仅超级管理员可操作' })
 	const openid = String(event.openid || '').trim()
 	if (!openid) {
 		throw new Error('缺少 openid')
 	}
 	if (openid === currentOpenid) {
 		throw new Error('不能移除自己')
+	}
+	if (openid === (await getSuperAdminOpenid())) {
+		throw new Error('超级管理员不可移除')
 	}
 	await db.collection('admin-whitelist').where({
 		openid

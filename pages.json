@@ -22,7 +22,7 @@
 		{
 			"path": "pages/admin/admins",
 			"style": {
-				"navigationBarTitleText": "管理权限"
+				"navigationBarTitleText": "权限管理"
 			}
 		},
 		{

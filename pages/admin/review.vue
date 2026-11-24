@@ -35,20 +35,18 @@
 					<view class="card-tags">
 						<text v-if="item.status === 'pending'" class="tag pending">待审核</text>
 						<text v-else-if="item.status === 'rejected'" class="tag rejected">已驳回</text>
-						<text v-if="item.source === 'user'" class="tag user">用户提交</text>
 						<text v-if="item.report_type === 'image'" class="tag image">图片补充</text>
 						<text class="card-tag" :style="{ backgroundColor: typeColor(item.type) }">{{ typeText(item.type) }}</text>
 					</view>
 				</view>
 
-				<scroll-view v-if="item.images && item.images.length" class="card-images" scroll-x :show-scrollbar="false">
-					<image v-for="(img, i) in item.images" :key="i" class="card-image" :src="imgUrl(img)" mode="aspectFill" @click="previewImages(item.images, i)"></image>
+				<scroll-view v-if="displayImages(item).length" class="card-images" scroll-x :show-scrollbar="false">
+					<image v-for="(url, i) in displayImages(item)" :key="i" class="card-image" :src="url" mode="aspectFill" @click="previewImages(displayImages(item), i)"></image>
 				</scroll-view>
 
 				<text v-if="item.address" class="card-line">地址：{{ item.address }}</text>
 				<text v-if="item.report_reason" class="card-line">更新说明：{{ item.report_reason }}</text>
 				<text v-else-if="item.remark" class="card-line">备注：{{ item.remark }}</text>
-				<text v-if="item.longitude && item.latitude" class="card-line">坐标：{{ item.longitude }}, {{ item.latitude }}</text>
 				<text v-if="item.contributor_name" class="card-line">共创者：{{ item.contributor_name }}</text>
 				<text v-if="item.reject_reason" class="card-line">驳回原因：{{ item.reject_reason }}</text>
 
@@ -62,6 +60,58 @@
 		</scroll-view>
 
 		<view class="footer">共 {{ total }} 条</view>
+
+		<!-- 审核通过：编辑地点详情后发布 -->
+		<view v-if="showForm" class="mask" @click="closeForm">
+			<view class="form" @click.stop>
+				<text class="form-title">编辑并发布地点</text>
+
+				<view class="field">
+					<text class="label">地点名称（必填）</text>
+					<input class="input" v-model="form.name" placeholder="请输入地点名称" />
+				</view>
+
+				<view class="field">
+					<text class="label">类型（必填）</text>
+					<picker :range="typeOptions" range-key="label" @change="onTypeChange">
+						<view class="picker">{{ typeText(form.type) }}</view>
+					</picker>
+				</view>
+
+				<view class="field">
+					<text class="label">地址（必填）</text>
+					<view class="locate-btn" @click="chooseLocation">
+						<text class="locate-icon">📍</text>
+						<text>地图选点</text>
+					</view>
+					<input class="input" style="margin-top: 12rpx;" v-model="form.address" placeholder="请输入详细地址" />
+				</view>
+
+				<view class="field">
+					<text class="label">备注</text>
+					<textarea class="textarea" v-model="form.remark" placeholder="补充描述（特色、营业时间等）" />
+				</view>
+
+				<view class="field">
+					<text class="label">图片（最多9张）</text>
+					<view class="image-list">
+						<view v-for="(img, i) in form.images" :key="i" class="image-item">
+							<image class="image-thumb" :src="imgUrl(img)" mode="aspectFill" @click="previewImages(form.images, i)"></image>
+							<text class="image-remove" @click="removeImage(i)">×</text>
+						</view>
+						<view v-if="form.images.length < 9" class="image-add" @click="chooseImages">
+							<text class="image-add-icon">+</text>
+							<text class="image-add-text">上传</text>
+						</view>
+					</view>
+				</view>
+
+				<view class="form-actions">
+					<button class="cancel" @click="closeForm">取消</button>
+					<button class="confirm" :disabled="submitting" @click="submitPublish">{{ submitting ? '发布中...' : '发布' }}</button>
+				</view>
+			</view>
+		</view>
 
 	</view>
 </template>
@@ -129,6 +179,14 @@
 	// 云存储 fileID 需转换为临时链接后才能显示
 	function imgUrl(id) {
 		return id ? (imageMap.value[id] || '') : ''
+	}
+
+	// 优先使用服务端解析好的图片链接，回退到客户端解析结果
+	function displayImages(item) {
+		if (item && Array.isArray(item.image_urls) && item.image_urls.length) {
+			return item.image_urls
+		}
+		return (item && Array.isArray(item.images) ? item.images : []).map(imgUrl).filter(url => !!url)
 	}
 
 	async function resolveImages(ids) {
@@ -202,6 +260,7 @@
 				type: filterType.value,
 				status: filterStatus.value,
 				source: 'user',
+				withImages: true,
 				page: 1,
 				pageSize: 100
 			})
@@ -421,14 +480,59 @@
 			})
 			return
 		}
-		uni.showModal({
-			title: '审核确认',
-			content: '确定通过「' + item.name + '」吗？',
-			success: (res) => {
-				if (!res.confirm) return
-				doReview(item, 'approved', '')
-			}
-		})
+		// 图片补充记录：确认后直接合并到目标地点
+		if (item.report_type === 'image') {
+			uni.showModal({
+				title: '审核确认',
+				content: '确定通过「' + item.name + '」的图片补充吗？',
+				success: (res) => {
+					if (!res.confirm) return
+					doReview(item, 'approved', '')
+				}
+			})
+			return
+		}
+		// 普通投稿：先展示并编辑地点详情，再发布
+		openEdit(item)
+	}
+
+	// 审核通过并发布：先编辑表单后提交
+	async function submitPublish() {
+		const f = form.value
+		if (!f.name.trim()) {
+			uni.showToast({ title: '请输入地点名称', icon: 'none' })
+			return
+		}
+		if (!f.type) {
+			uni.showToast({ title: '请选择地点类型', icon: 'none' })
+			return
+		}
+		if (!f.address.trim()) {
+			uni.showToast({ title: '请输入地址', icon: 'none' })
+			return
+		}
+		submitting.value = true
+		const payload = {
+			name: f.name,
+			type: f.type,
+			address: f.address,
+			remark: f.remark,
+			images: f.images
+		}
+		if (f.longitude !== '' && f.latitude !== '') {
+			payload.longitude = f.longitude
+			payload.latitude = f.latitude
+		}
+		try {
+			await runAdmin((token) => spotsObj.publish(f.id, payload, token))
+			uni.showToast({ title: '已发布', icon: 'success' })
+			showForm.value = false
+			loadList()
+		} catch (err) {
+			showError(err)
+		} finally {
+			submitting.value = false
+		}
 	}
 
 	// 执行审核并刷新列表
@@ -483,7 +587,8 @@
 	.toolbar {
 		display: flex;
 		align-items: center;
-		padding: $space-md;
+		flex-shrink: 0;
+		padding: 12rpx $space-md;
 		background-color: $bg-card;
 		box-shadow: $shadow-sm;
 	}
@@ -520,20 +625,21 @@
 
 	.filter-scroll {
 		width: 100%;
+		flex-shrink: 0;
 		white-space: nowrap;
 		background-color: $bg-card;
-		padding: 16rpx 0;
 	}
 
 	.filter {
-		display: inline-flex;
-		padding: 0 $space-md;
+		display: inline-block;
+		padding: 10rpx $space-md;
 	}
 
 	.filter-item {
-		flex-shrink: 0;
-		padding: 12rpx 30rpx;
-		margin-right: 16rpx;
+		display: inline-block;
+		vertical-align: top;
+		padding: 6rpx 20rpx;
+		margin-right: 12rpx;
 		font-size: $fs-sm;
 		font-weight: 500;
 		color: $text-main;
@@ -552,12 +658,13 @@
 
 	.status-bar {
 		display: flex;
-		padding: 16rpx $space-md 0;
+		flex-shrink: 0;
+		padding: 10rpx $space-md 0;
 	}
 
 	.status-item {
-		padding: 10rpx 26rpx;
-		margin-right: 16rpx;
+		padding: 6rpx 20rpx;
+		margin-right: 12rpx;
 		font-size: $fs-sm;
 		font-weight: 500;
 		color: $text-regular;
@@ -578,14 +685,14 @@
 
 	.list {
 		flex: 1;
-		padding: 20rpx 0;
+		padding: 8rpx 0;
 	}
 
 	.card {
 		background-color: $bg-card;
-		border-radius: $radius-lg;
-		padding: $space-md;
-		margin: 0 $space-md 20rpx;
+		border-radius: $radius-md;
+		padding: 16rpx;
+		margin: 0 $space-md 10rpx;
 		box-shadow: $shadow-card;
 		transition: all $duration-fast ease;
 		
@@ -602,7 +709,7 @@
 	}
 
 	.card-name {
-		font-size: 32rpx;
+		font-size: 30rpx;
 		font-weight: 600;
 		color: $text-main;
 	}
@@ -615,9 +722,9 @@
 	.tag {
 		font-size: $fs-xs;
 		color: #ffffff;
-		padding: 6rpx 18rpx;
+		padding: 4rpx 14rpx;
 		border-radius: $radius-pill;
-		margin-right: 12rpx;
+		margin-right: 8rpx;
 		font-weight: 500;
 	}
 
@@ -640,7 +747,7 @@
 	.card-tag {
 		font-size: $fs-xs;
 		color: #ffffff;
-		padding: 6rpx 18rpx;
+		padding: 4rpx 14rpx;
 		border-radius: $radius-pill;
 		font-weight: 500;
 	}
@@ -648,13 +755,13 @@
 	.card-images {
 		width: 100%;
 		white-space: nowrap;
-		margin-top: 16rpx;
+		margin-top: 8rpx;
 	}
 
 	.card-image {
 		display: inline-block;
-		width: 168rpx;
-		height: 126rpx;
+		width: 120rpx;
+		height: 90rpx;
 		margin-right: 12rpx;
 		border-radius: $radius-sm;
 		background-color: $bg-fill;
@@ -662,22 +769,22 @@
 
 	.card-line {
 		display: block;
-		margin-top: 12rpx;
+		margin-top: 4rpx;
 		font-size: $fs-sm;
 		color: $text-secondary;
-		line-height: 1.5;
+		line-height: 1.4;
 	}
 
 	.card-actions {
 		display: flex;
 		justify-content: flex-end;
-		margin-top: 20rpx;
+		margin-top: 8rpx;
 	}
 
 	.action-btn {
 		font-size: $fs-sm;
 		font-weight: 500;
-		padding: 10rpx 30rpx;
+		padding: 8rpx 24rpx;
 		border-radius: $radius-pill;
 		margin-left: 16rpx;
 		transition: all $duration-fast ease;
@@ -716,8 +823,9 @@
 	}
 
 	.footer {
+		flex-shrink: 0;
 		text-align: center;
-		padding: 20rpx;
+		padding: 8rpx;
 		font-size: $fs-sm;
 		color: $text-secondary;
 	}

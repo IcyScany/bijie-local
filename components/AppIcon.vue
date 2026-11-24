@@ -139,7 +139,10 @@ $google-gray: #80868B;        // Google Gray
 	display: inline-block;
 	flex-shrink: 0;
 	vertical-align: middle;
-	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	/* 只过渡颜色/透明度/点击缩放，避免 width/height 变化产生"由大变小"的动画 */
+	transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+		filter 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+		transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 	
 	/* 颜色变体系统 - 使用 Google 官方颜色 */
 	

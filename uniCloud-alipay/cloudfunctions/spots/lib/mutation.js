@@ -265,11 +265,49 @@ async function review(id, status, token, reason) {
 	}
 }
 
+// 审核通过并发布：管理员可先编辑地点信息再发布（图片补充投稿仍走合并逻辑）
+async function publish(id, data = {}, token) {
+	const openid = await requireAdmin(token)
+	if (!id) {
+		throw new Error('缺少地点ID')
+	}
+	const docRes = await collection.doc(id).get()
+	const spot = (docRes.data && docRes.data[0]) || null
+	if (!spot) {
+		throw new Error('地点不存在')
+	}
+	// 图片补充投稿：通过时把图片并入目标地点
+	if (spot.report_type === 'image' && spot.target_id) {
+		return review(id, 'approved', token, '')
+	}
+	if (data.name !== undefined && !String(data.name).trim()) {
+		throw new Error('地点名称不能为空')
+	}
+	if (data.address !== undefined && !String(data.address).trim()) {
+		throw new Error('地址不能为空')
+	}
+	if (data.type !== undefined && !TYPE_LIST.includes(data.type)) {
+		throw new Error('请选择地点类型')
+	}
+	const updateData = buildUpdateData(data)
+	updateData.status = 'approved'
+	updateData.reject_reason = ''
+	updateData.update_date = Date.now()
+	updateData.updater_openid = openid
+	updateData.updater_name = await resolveContributorName(openid)
+	await collection.doc(id).update(updateData)
+	await syncSpotContributions(id, 'approved')
+	return {
+		updated: 1
+	}
+}
+
 module.exports = {
 	addImages,
 	add,
 	update,
 	remove,
 	submit,
-	review
+	review,
+	publish
 }

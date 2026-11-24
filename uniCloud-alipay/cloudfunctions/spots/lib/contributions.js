@@ -4,21 +4,17 @@ const db = uniCloud.database()
 const dbCmd = db.command
 const { resolveContributorName } = require('cloud-auth')
 
-// 积分规则（审核通过后计入）：新增地点 10 分、更新反馈 3 分、补充图片每张 2 分（单次最多 5 分）
+// 积分规则（审核通过后计入）：新增地点 5 分、地点更新（含补充图片）每次 2 分
 const POINTS = {
-	new: 10,
-	update: 3,
-	image: 2,
-	imageMax: 5
+	new: 5,
+	update: 2,
+	image: 2
 }
 
-// 计算某条共创的积分（按类型：新增地点 / 更新反馈 / 补充图片）
+// 计算某条共创的积分（新增地点 / 地点更新 / 补充图片；补充图片不区分张数）
 function calcPoints(entry = {}) {
 	const type = entry.report_type || entry.action
-	if (type === 'image') {
-		const count = Math.max(1, Number(entry.imageCount) || 1)
-		return Math.min(count * POINTS.image, POINTS.imageMax)
-	}
+	if (type === 'image') return POINTS.image
 	if (type === 'update') return POINTS.update
 	return POINTS.new
 }

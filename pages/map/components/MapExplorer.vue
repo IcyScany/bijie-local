@@ -14,6 +14,7 @@
 			:enable-overlooking="false"
 			show-location
 			@markertap="onMarkerTap"
+			@callouttap="onMarkerTap"
 			@tap="onMapTap"
 			@regionchange="onRegionChange"
 		></map>
@@ -99,8 +100,7 @@
 								<image
 									:src="thumbUrl(spot) || '/static/img/default_spot.png'"
 									mode="aspectFill"
-									lazy-load
-									style="width: 100%; height: 100%; border-radius: 12rpx;"
+									style="width: 120rpx; height: 120rpx; border-radius: 12rpx;"
 								></image>
 							</view>
 						</view>
@@ -141,6 +141,7 @@
 <script setup>
 	import { ref, computed, onMounted, watch, nextTick, getCurrentInstance } from 'vue'
 	import { getTypeLabel } from '@/utils/placeTypes.js'
+	import { distanceMeters, formatDistance } from '@/utils/geo.js'
 	import AppLoading from '@/components/AppLoading.vue'
 	import AppIcon from '@/components/AppIcon.vue'
 	import DragSheet from '@/components/DragSheet.vue'
@@ -295,7 +296,7 @@
 	}
 
 	// 放大地图到一定级别时，marker 常显名称
-	const NAME_MIN_SCALE = 16
+	const NAME_MIN_SCALE = 14
 	const currentScale = ref(props.scale || 13)
 	const showMarkerName = computed(() => currentScale.value >= NAME_MIN_SCALE)
 
@@ -319,21 +320,20 @@
 					zIndex: 999
 				})
 				delete copy.callout
+				delete copy.label
 				if (showName && m.title) {
-					copy.label = {
+					// 用常显气泡展示地点名称：气泡绘制在 marker 图层之上，
+					// 避免被相邻 marker 遮挡（marker.label 会随 markers 数组顺序被压盖）
+					copy.callout = {
 						content: m.title,
 						color: '#202124',
 						fontSize: 13,
-						anchorX: 0,
-						anchorY: -58,
-						borderWidth: 0,
 						borderRadius: 8,
-						bgColor: 'rgba(255,255,255,0.92)',
+						bgColor: '#FFFFFF',
 						padding: 4,
-						textAlign: 'center'
+						textAlign: 'center',
+						display: 'ALWAYS'
 					}
-				} else {
-					delete copy.label
 				}
 				return copy
 			})
@@ -423,18 +423,8 @@
 	function distanceText(spot) {
 		const loc = props.userLocation
 		if (!loc || !spot) return ''
-		const lat = Number(spot.latitude)
-		const lon = Number(spot.longitude)
-		if (!Number.isFinite(lat) || !Number.isFinite(lon)) return ''
-		const R = 6371000
-		const toRad = d => (d * Math.PI) / 180
-		const dLat = toRad(lat - loc.latitude)
-		const dLon = toRad(lon - loc.longitude)
-		const a = Math.sin(dLat / 2) ** 2 +
-			Math.cos(toRad(loc.latitude)) * Math.cos(toRad(lat)) * Math.sin(dLon / 2) ** 2
-		const dist = 2 * R * Math.asin(Math.sqrt(a))
-		if (dist < 1000) return Math.round(dist) + '米'
-		return (dist / 1000).toFixed(1) + '公里'
+		const dist = distanceMeters(loc.latitude, loc.longitude, spot.latitude, spot.longitude)
+		return formatDistance(dist)
 	}
 
 	// 排序切换（再次点击取消排序）
@@ -443,6 +433,12 @@
 	}
 
 	function thumbUrl(spot) {
+		if (spot && Array.isArray(spot.image_urls) && spot.image_urls.length) {
+			return spot.image_urls[0]
+		}
+		if (spot && spot.thumb) {
+			return spot.thumb
+		}
 		const first = spot && Array.isArray(spot.images) ? spot.images[0] : ''
 		return first ? (props.imageMap[first] || '') : ''
 	}

@@ -64,6 +64,7 @@
 	import { onShow, onHide } from '@dcloudio/uni-app'
 	import { ensureLogin, getToken, isAuthError, relogin } from '@/utils/auth.js'
 	import { getMapCategories } from '@/utils/placeTypes.js'
+	import { distanceMeters } from '@/utils/geo.js'
 	import { useSpotExplorer } from '@/utils/useSpotExplorer.js'
 	import { compressImage, filterOversizeImages } from '@/utils/image.js'
 	import MapExplorer from './components/MapExplorer.vue'
@@ -149,6 +150,38 @@
 		favoriteIds
 	})
 
+	// 毕节（七星关区）中心与判定半径：定位超出该半径视为非毕节地区（可调整）
+	const BIJIE_CENTER = { longitude: 105.2844, latitude: 27.2987 }
+	const BIJIE_RADIUS_M = 80000
+	let offBijiePrompted = false
+
+	function inBijie(lat, lng) {
+		const d = distanceMeters(BIJIE_CENTER.latitude, BIJIE_CENTER.longitude, lat, lng)
+		return d == null ? true : d <= BIJIE_RADIUS_M
+	}
+
+	// 一键回到毕节
+	function goToBijie() {
+		center.value = {
+			longitude: BIJIE_CENTER.longitude,
+			latitude: BIJIE_CENTER.latitude
+		}
+		scale.value = 12
+	}
+
+	// 告知用户定位不在毕节，并提供一键跳转
+	function promptOffBijie() {
+		uni.showModal({
+			title: '当前不在毕节',
+			content: '没有定位到毕节地区，已为你展示毕节的地点。是否切换到毕节？',
+			confirmText: '去毕节',
+			cancelText: '取消',
+			success: (res) => {
+				if (res.confirm) goToBijie()
+			}
+		})
+	}
+
 	// 搜索结果中选中地点：定位并打开详情（结果可能不在当前列表，需先并入）
 	function onSelectSpotFromSearch(spot) {
 		if (!spot || !spot._id) return
@@ -180,6 +213,11 @@
 				userLocation.value = {
 					latitude: res.latitude,
 					longitude: res.longitude
+				}
+				// 定位不在毕节：不跳转到外地，改为提示并可一键回毕节
+				if (!inBijie(res.latitude, res.longitude)) {
+					promptOffBijie()
+					return
 				}
 				center.value = {
 					longitude: res.longitude,
@@ -213,8 +251,18 @@
 					latitude: res.latitude,
 					longitude: res.longitude
 				}
-				// 首次进入时把地图中心定位到用户当前位置
-				if (!centeredToUser.value) {
+				if (!inBijie(res.latitude, res.longitude)) {
+					// 定位不在毕节：地图保持在毕节，并提示一次一键跳转
+					if (!centeredToUser.value) {
+						centeredToUser.value = true
+						goToBijie()
+					}
+					if (!offBijiePrompted) {
+						offBijiePrompted = true
+						promptOffBijie()
+					}
+				} else if (!centeredToUser.value) {
+					// 首次进入时把地图中心定位到用户当前位置
 					centeredToUser.value = true
 					center.value = {
 						longitude: res.longitude,

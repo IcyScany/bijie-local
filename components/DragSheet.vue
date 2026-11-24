@@ -19,6 +19,16 @@
 		</view>
 
 		<slot></slot>
+
+		<!-- 拖动时铺满屏幕的透明拦截层：手指移出面板后也不会落到背后的地图上 -->
+		<view
+			v-if="dragShield"
+			class="gm-drag-shield"
+			@touchstart.stop
+			@touchmove.stop="onDragMove"
+			@touchend.stop="onDragEnd"
+			@touchcancel.stop="onDragEnd"
+		></view>
 	</view>
 </template>
 
@@ -51,6 +61,8 @@
 
 	const currentHeight = ref(props.height)
 	const isDragging = ref(false)
+	// 拖动拦截层：拖动过程中铺满屏幕，避免触摸穿透到背后地图
+	const dragShield = ref(false)
 	let dragging = false
 	let dragStarted = false
 	let dragStartY = 0
@@ -115,6 +127,7 @@
 			if (Math.abs(dy) < DRAG_THRESHOLD) return
 			dragStarted = true
 			isDragging.value = true
+			dragShield.value = true
 		}
 		const h = dragStartHeight + (dy / getViewportHeight()) * 100
 		currentHeight.value = clamp(h)
@@ -124,6 +137,7 @@
 	function onDragEnd() {
 		if (!dragging) return
 		dragging = false
+		dragShield.value = false
 		emit('sheet-touchend')
 		if (!dragStarted) return
 		dragStarted = false
@@ -163,6 +177,8 @@
 		z-index: 999;
 		width: 100%;
 		pointer-events: auto;
+		/* 允许拖动拦截层溢出面板铺满屏幕（父级 .gm-bottom-sheet 默认 overflow: hidden 会裁剪） */
+		overflow: visible;
 		animation: gm-slide-up 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 
@@ -170,5 +186,19 @@
 	.gm-drag-sheet.gm-dragging {
 		transition: none;
 		will-change: auto;
+		/* 去除残留 transform，保证拦截层相对视口定位 */
+		animation: none;
+		transform: none;
+	}
+
+	/* 拖动拦截层：拖动时铺满屏幕，手指移出面板后触摸不再落到背后的原生地图 */
+	.gm-drag-shield {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 1000;
+		background-color: transparent;
 	}
 </style>

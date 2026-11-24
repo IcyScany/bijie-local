@@ -44,7 +44,7 @@
 		<view v-if="searching" class="gm-search-page">
 			<view class="gm-search-page-bar">
 				<view class="gm-search gm-search-page-box">
-					<app-icon class="gm-search-leading" icon="arrowBack" size="lg" color="inherit" :custom-style="{ display: 'block', alignSelf: 'center', marginRight: '8rpx', filter: 'brightness(0.4)' }" clickable @click="exitSearch" />
+					<app-icon class="gm-search-leading" icon="arrowBack" color="inherit" width="40rpx" height="40rpx" :custom-style="{ display: 'block', alignSelf: 'center', marginRight: '8rpx', filter: 'brightness(0.4)' }" clickable @click="exitSearch" />
 					<input
 						class="gm-search-input"
 						:value="keyword"
@@ -109,6 +109,7 @@
 
 <script setup>
 	import { ref, computed, watch, onMounted } from 'vue'
+	import { formatDistance } from '@/utils/geo.js'
 	import AppIcon from '@/components/AppIcon.vue'
 
 	const props = defineProps({
@@ -189,7 +190,7 @@
 				_id: s._id,
 				name: s.name || '',
 				address: s.address || '',
-				distanceText: formatDistance(s._distance),
+				distanceText: formatDistance(s._distance, { meterUnit: 'm', kmUnit: 'km', unitSpace: ' ' }),
 				spot: s
 			}))
 			// 开发期排查：确认关键词与返回数量
@@ -233,8 +234,16 @@
 	}
 
 	function clearHistory() {
-		searchHistory.value = []
-		persistHistory()
+		if (!searchHistory.value.length) return
+		uni.showModal({
+			title: '清空搜索记录',
+			content: '确定清空全部搜索记录吗？',
+			success: (res) => {
+				if (!res.confirm) return
+				searchHistory.value = []
+				persistHistory()
+			}
+		})
 	}
 
 	// 进入搜索状态：原输入框失焦、搜索页输入框聚焦，并通知父级隐藏地点列表
@@ -295,32 +304,6 @@
 		emit('select-spot', item.spot)
 	}
 
-	function toRad(d) {
-		return (d * Math.PI) / 180
-	}
-
-	function distanceMeters(loc, spot) {
-		if (!loc) return null
-		const lat1 = Number(loc.latitude)
-		const lon1 = Number(loc.longitude)
-		const lat2 = Number(spot.latitude)
-		const lon2 = Number(spot.longitude)
-		if (![lat1, lon1, lat2, lon2].every(v => Number.isFinite(v))) return null
-		const R = 6371000
-		const dLat = toRad(lat2 - lat1)
-		const dLon = toRad(lon2 - lon1)
-		const s1 = Math.sin(dLat / 2)
-		const s2 = Math.sin(dLon / 2)
-		const a = s1 * s1 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * s2 * s2
-		return 2 * R * Math.asin(Math.sqrt(a))
-	}
-
-	function formatDistance(m) {
-		if (m == null || !Number.isFinite(m)) return ''
-		if (m < 1000) return Math.round(m) + ' m'
-		return (m / 1000).toFixed(1) + ' km'
-	}
-
 	// 匹配的地点（后端搜索结果；名称/地址包含关键词）
 	const matchedSpots = computed(() => {
 		return searchResults.value
@@ -359,7 +342,7 @@
 	}
 
 	.gm-search-page-bar {
-		padding: 16rpx 24rpx;
+		padding: 16rpx;
 		padding-top: calc(16rpx + constant(safe-area-inset-top));
 		padding-top: calc(16rpx + env(safe-area-inset-top));
 	}
@@ -382,7 +365,7 @@
 	}
 
 	.gm-search-clear {
-		font-size: 32rpx;
+		font-size: 36rpx;
 		line-height: 1;
 		color: #5F6368;
 		padding: 0 8rpx;

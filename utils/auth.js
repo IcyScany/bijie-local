@@ -1,6 +1,7 @@
 const TOKEN_KEY = 'uni_token'
 const OPENID_KEY = 'uni_openid'
 const ADMIN_KEY = 'is_admin'
+const SUPER_KEY = 'is_super_admin'
 const USER_KEY = 'user_info'
 
 // token 校验间隔：距上次校验超过该时间则重新向服务端确认有效性
@@ -26,6 +27,7 @@ function readCache() {
 		token: uni.getStorageSync(TOKEN_KEY) || '',
 		openid: uni.getStorageSync(OPENID_KEY) || '',
 		isAdmin: !!uni.getStorageSync(ADMIN_KEY),
+		isSuperAdmin: !!uni.getStorageSync(SUPER_KEY),
 		userInfo: uni.getStorageSync(USER_KEY) || {}
 	}
 }
@@ -35,6 +37,7 @@ function clearAuth() {
 	uni.removeStorageSync(TOKEN_KEY)
 	uni.removeStorageSync(OPENID_KEY)
 	uni.removeStorageSync(ADMIN_KEY)
+	uni.removeStorageSync(SUPER_KEY)
 	uni.removeStorageSync(USER_KEY)
 	lastCheckAt = 0
 }
@@ -78,6 +81,7 @@ function requestLogin() {
 		uni.setStorageSync(TOKEN_KEY, data.token || '')
 		uni.setStorageSync(OPENID_KEY, data.openid || '')
 		uni.setStorageSync(ADMIN_KEY, !!data.isAdmin)
+		uni.setStorageSync(SUPER_KEY, !!data.isSuperAdmin)
 		uni.setStorageSync(USER_KEY, data.userInfo || {})
 		// 刚登录成功，短期内无需再次校验
 		lastCheckAt = Date.now()
@@ -115,6 +119,7 @@ function verifyToken(token) {
 		}
 		uni.setStorageSync(OPENID_KEY, data.openid)
 		uni.setStorageSync(ADMIN_KEY, !!data.isAdmin)
+		uni.setStorageSync(SUPER_KEY, !!data.isSuperAdmin)
 		return true
 	})
 }
@@ -164,6 +169,11 @@ export function getOpenid() {
 // 判断当前用户是否为管理员
 export function isAdmin() {
 	return !!uni.getStorageSync(ADMIN_KEY)
+}
+
+// 判断当前用户是否为超级管理员
+export function isSuperAdmin() {
+	return !!uni.getStorageSync(SUPER_KEY)
 }
 
 // 读取本地缓存的用户信息

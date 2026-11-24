@@ -18,19 +18,19 @@
 					</view>
 
 					<view class="field">
-						<text class="label">地点名称 *</text>
+						<text class="label">地点名称（必填）</text>
 						<input class="input" v-model="form.name" placeholder="如：某某烙锅摊" />
 					</view>
 
 					<view class="field">
-						<text class="label">类型 *</text>
+						<text class="label">类型（必填）</text>
 						<picker :range="typeOptions" range-key="label" @change="onTypeChange">
 							<view class="picker">{{ typeText(form.type) }}</view>
 						</picker>
 					</view>
 
 					<view class="field">
-						<text class="label">地址 *</text>
+						<text class="label">地址（必填）</text>
 						<input class="input" v-model="form.address" placeholder="请输入详细地址" />
 					</view>
 
@@ -42,7 +42,7 @@
 
 				<view v-else>
 					<view class="field">
-						<text class="label">要更新的地点 *</text>
+						<text class="label">要更新的地点（必填）</text>
 						<view class="picker picker-select" @click="openSpotPicker">
 							<text :class="{ 'picker-placeholder': targetIndex < 0 }">{{ targetIndex > -1 ? spotNames[targetIndex] : '请选择地点' }}</text>
 							<text class="picker-arrow">›</text>
@@ -50,7 +50,7 @@
 					</view>
 
 					<view class="field">
-						<text class="label">更新说明 *</text>
+						<text class="label">更新说明（必填）</text>
 						<textarea class="textarea" v-model="form.report_reason" placeholder="如：摊位已搬迁到对面" />
 					</view>
 				</view>
@@ -451,7 +451,7 @@
 	/* 顶部分段切换 */
 	.switch {
 		display: flex;
-		margin: 32rpx 32rpx 0;
+		margin: 20rpx 24rpx 0;
 		padding: 6rpx;
 		background-color: #EDEFF2;
 		border-radius: 18rpx;
@@ -460,7 +460,7 @@
 	.switch-item {
 		flex: 1;
 		text-align: center;
-		padding: 14rpx 0;
+		padding: 10rpx 0;
 		font-size: 26rpx;
 		color: $text-secondary;
 		border-radius: 14rpx;
@@ -485,15 +485,15 @@
 	}
 
 	.form {
-		margin: 24rpx;
-		padding: 28rpx 24rpx;
+		margin: 16rpx 24rpx;
+		padding: 20rpx;
 		background-color: #FFFFFF;
 		border-radius: 24rpx;
 		box-shadow: 0 4rpx 20rpx rgba(29, 33, 41, 0.04);
 	}
 
 	.field {
-		margin-bottom: 24rpx;
+		margin-bottom: 16rpx;
 	}
 
 	.field-row {
@@ -515,7 +515,7 @@
 		font-weight: 500;
 		color: #5F6368;
 		letter-spacing: 1rpx;
-		margin-bottom: 10rpx;
+		margin-bottom: 8rpx;
 	}
 
 	.input,
@@ -531,20 +531,20 @@
 	}
 
 	.input {
-		height: 80rpx;
-		padding: 0 24rpx;
+		height: 72rpx;
+		padding: 0 20rpx;
 	}
 
 	.picker {
-		height: 80rpx;
-		line-height: 80rpx;
-		padding: 0 24rpx;
+		height: 72rpx;
+		line-height: 72rpx;
+		padding: 0 20rpx;
 	}
 
 	.textarea {
 		width: 100%;
-		height: 150rpx;
-		padding: 20rpx 24rpx;
+		height: 128rpx;
+		padding: 16rpx 20rpx;
 		box-sizing: border-box;
 	}
 
@@ -558,7 +558,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: 80rpx;
+		height: 72rpx;
 		font-size: 28rpx;
 		font-weight: 500;
 		color: #1A73E8;
@@ -577,7 +577,7 @@
 
 	.locate-tip {
 		display: block;
-		margin-top: 16rpx;
+		margin-top: 10rpx;
 		font-size: 24rpx;
 		color: $text-secondary;
 		line-height: 1.5;
@@ -587,19 +587,19 @@
 	.image-list {
 		display: flex;
 		flex-wrap: wrap;
-		margin-bottom: -16rpx;
+		margin-bottom: -14rpx;
 	}
 
 	.image-item {
 		position: relative;
-		width: 150rpx;
-		height: 150rpx;
-		margin: 0 16rpx 16rpx 0;
+		width: 132rpx;
+		height: 132rpx;
+		margin: 0 14rpx 14rpx 0;
 	}
 
 	.image-thumb {
-		width: 150rpx;
-		height: 150rpx;
+		width: 132rpx;
+		height: 132rpx;
 		border-radius: 16rpx;
 		background-color: #F5F6F8;
 	}
@@ -619,8 +619,8 @@
 	}
 
 	.image-add {
-		width: 150rpx;
-		height: 150rpx;
+		width: 132rpx;
+		height: 132rpx;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -656,15 +656,15 @@
 
 	/* 底部提交 */
 	.submit-bar {
-		padding: 20rpx 28rpx;
-		padding-bottom: calc(24rpx + constant(safe-area-inset-bottom));
-		padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+		padding: 10rpx 24rpx;
+		padding-bottom: calc(8rpx + constant(safe-area-inset-bottom));
+		padding-bottom: calc(8rpx + env(safe-area-inset-bottom));
 		background-color: transparent;
 	}
 
 	.submit {
-		height: 84rpx;
-		line-height: 84rpx;
+		height: 76rpx;
+		line-height: 76rpx;
 		font-size: 30rpx;
 		font-weight: 600;
 		color: #FFFFFF;
@@ -710,7 +710,7 @@
 
 	.spot-panel {
 		width: 100%;
-		max-height: 72vh;
+		height: 72vh;
 		background-color: #FFFFFF;
 		border-radius: 28rpx 28rpx 0 0;
 		padding: 28rpx 28rpx calc(28rpx + env(safe-area-inset-bottom));
@@ -757,7 +757,7 @@
 	.spot-option {
 		display: flex;
 		flex-direction: column;
-		padding: 22rpx 8rpx;
+		padding: 16rpx 8rpx;
 		border-bottom: 1rpx solid #F0F1F3;
 	}
 
