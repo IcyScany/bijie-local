@@ -12,7 +12,7 @@
 			<view class="edit-btn" @click="openProfile">编辑资料</view>
 		</view>
 
-		<view class="stats">
+		<view v-if="user.isAdmin" class="stats">
 			<view class="stat">
 				<text class="stat-num">{{ user.contributionPoints || 0 }}</text>
 				<text class="stat-label">共创积分</text>
@@ -25,18 +25,25 @@
 
 		<!-- 管理员菜单（仅管理员可见） -->
 		<view v-if="user.isAdmin" class="menu">
-			<view class="menu-item" @click="goReview">
+			<view class="menu-item" @click="goContribute">
+				<view class="menu-left">
+					<text class="menu-label">补充 / 更新地点</text>
+					<text class="menu-tag">管理员</text>
+				</view>
+				<text class="menu-arrow">›</text>
+			</view>
+			<view v-if="user.isSuperAdmin" class="menu-item" @click="goReview">
 				<view class="menu-left">
 					<text class="menu-label">审核管理</text>
-					<text class="menu-tag">管理员</text>
+					<text class="menu-tag">超级管理员</text>
 					<text v-if="pendingCount" class="menu-badge">{{ pendingCount > 99 ? '99+' : pendingCount }}</text>
 				</view>
 				<text class="menu-arrow">›</text>
 			</view>
-			<view class="menu-item" @click="goSpots">
+			<view v-if="user.isSuperAdmin" class="menu-item" @click="goSpots">
 				<view class="menu-left">
 					<text class="menu-label">地点管理</text>
-					<text class="menu-tag">管理员</text>
+					<text class="menu-tag">超级管理员</text>
 				</view>
 				<text class="menu-arrow">›</text>
 			</view>
@@ -49,7 +56,7 @@
 			</view>
 		</view>
 
-		<view class="menu">
+		<view v-if="user.isAdmin" class="menu">
 			<view class="menu-item" @click="goContributions">
 				<text class="menu-label">我的共创</text>
 				<text class="menu-arrow">›</text>
@@ -196,6 +203,11 @@
 		try {
 			await ensureLogin()
 		} catch (e) {
+			console.error('[mine] 登录失败', e)
+			uni.showToast({
+				title: (e && e.message) || '登录失败，请检查网络',
+				icon: 'none'
+			})
 			return
 		}
 		try {
@@ -212,6 +224,7 @@
 			}
 			refreshAvatar()
 		} catch (e) {
+			console.error('[mine] 资料加载失败', e)
 			const info = getUserInfo()
 			user.value = {
 				nickname: info.nickname || '',
@@ -391,8 +404,14 @@
 		})
 	}
 
+	function goContribute() {
+		uni.navigateTo({
+			url: '/pages/contribute/contribute'
+		})
+	}
+
 	function goContributors() {
-		uni.switchTab({
+		uni.navigateTo({
 			url: '/pages/contributors/contributors'
 		})
 	}

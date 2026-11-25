@@ -3,7 +3,7 @@
 		{
 			"path": "pages/map/map",
 			"style": {
-				"navigationBarTitleText": "毕节路小摊",
+				"navigationBarTitleText": "毕节小摊边",
 				"disableScroll": true
 			}
 		},
@@ -83,18 +83,6 @@
 				"text": "探索",
 				"iconPath": "static/tabbar/map.png",
 				"selectedIconPath": "static/tabbar/map-active.png"
-			},
-			{
-				"pagePath": "pages/contribute/contribute",
-				"text": "补充/更新",
-				"iconPath": "static/tabbar/add_location.png",
-				"selectedIconPath": "static/tabbar/add_location-actiev.png"
-			},
-			{
-				"pagePath": "pages/contributors/contributors",
-				"text": "共创",
-				"iconPath": "static/tabbar/leaderboard.png",
-				"selectedIconPath": "static/tabbar/leaderboard-active.png"
 			},
 			{
 				"pagePath": "pages/mine/mine",

@@ -30,7 +30,8 @@
 
 <script setup>
 	import { ref } from 'vue'
-	import { onLoad } from '@dcloudio/uni-app'
+	import { onLoad, onShow } from '@dcloudio/uni-app'
+	import { isAdmin } from '@/utils/auth.js'
 	import AppSkeleton from '@/components/AppSkeleton.vue'
 	import PointsRuleCard from '@/components/PointsRuleCard.vue'
 
@@ -38,7 +39,24 @@
 	const loading = ref(false)
 
 	onLoad(() => {
+		if (!isAdmin()) {
+			uni.showToast({
+				title: '仅管理员可访问',
+				icon: 'none'
+			})
+			setTimeout(() => {
+				uni.switchTab({
+					url: '/pages/map/map'
+				})
+			}, 800)
+			return
+		}
 		loadContributors()
+	})
+
+	// 返回页面时刷新排行数据
+	onShow(() => {
+		if (isAdmin()) loadContributors()
 	})
 
 	// 拉取共创者排行数据

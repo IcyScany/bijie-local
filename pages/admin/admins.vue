@@ -18,23 +18,57 @@
 
 		<view class="card">
 			<text class="card-title">添加管理员</text>
-			<input class="input" v-model="newOpenid" placeholder="输入用户 openid" />
-			<button class="add-btn" :disabled="adding" @click="addAdmin">{{ adding ? '添加中...' : '添加' }}</button>
-			<text class="tip">提示：让对方在「我的」页复制其 openid，或从云数据库 users 表查询</text>
+			<view class="search-row">
+				<input class="input search-input" v-model="keyword" placeholder="输入用户昵称 / openid 搜索" confirm-type="search" @confirm="doSearch" />
+				<button class="search-btn" :disabled="searching" @click="doSearch">{{ searching ? '搜索中' : '搜索' }}</button>
+			</view>
+			<view v-if="searched" class="search-results">
+				<view v-if="!results.length && !canAddRaw" class="empty">未找到匹配用户</view>
+				<view v-for="u in results" :key="u.openid" class="result-item">
+					<image v-if="avatarMap[u.openid]" class="admin-avatar" :src="avatarMap[u.openid]" mode="aspectFill" />
+					<view v-else class="admin-avatar admin-avatar-text">{{ avatarText(u.nickname) }}</view>
+					<view class="result-info">
+						<text class="admin-name">{{ u.nickname }}</text>
+						<text class="admin-openid">{{ u.openid }}</text>
+					</view>
+					<text v-if="isAdminUser(u.openid)" class="result-added">已是管理员</text>
+					<text v-else class="result-add" @click="addByUser(u)">添加</text>
+				</view>
+				<view v-if="canAddRaw" class="result-item">
+					<view class="admin-avatar admin-avatar-text">{{ avatarText(keyword) }}</view>
+					<view class="result-info">
+						<text class="admin-name">直接使用该 openid</text>
+						<text class="admin-openid">{{ keyword.trim() }}</text>
+					</view>
+					<text v-if="isAdminUser(keyword.trim())" class="result-added">已是管理员</text>
+					<text v-else class="result-add" @click="addByUser({ openid: keyword.trim() })">添加</text>
+				</view>
+			</view>
+			<text class="tip">按昵称搜索用户即可添加，无需再查 openid；也可直接粘贴 openid 添加</text>
 		</view>
 	</view>
 </template>
 
 <script setup>
-	import { ref } from 'vue'
+	import { ref, computed } from 'vue'
 	import { onShow } from '@dcloudio/uni-app'
 	import { ensureLogin, getToken, isAuthError, relogin, isSuperAdmin } from '@/utils/auth.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
 
 	const admins = ref([])
 	const avatarMap = ref({})
-	const newOpenid = ref('')
 	const adding = ref(false)
+	// 搜索添加管理员
+	const keyword = ref('')
+	const searching = ref(false)
+	const searched = ref(false)
+	const results = ref([])
+
+	// 关键字是否为可用 openid（用于兜底直接添加）
+	const canAddRaw = computed(() => {
+		const k = keyword.value.trim()
+		return !!k && /^[\w-]{10,}$/.test(k) && !results.value.some(u => u.openid === k)
+	})
 
 	onShow(async () => {
 		await ensureLogin().catch(() => {})
@@ -118,7 +152,7 @@
 				}
 			})
 		}
-		avatarMap.value = map
+		avatarMap.value = Object.assign({}, avatarMap.value, map)
 	}
 
 	function avatarText(name) {
@@ -134,27 +168,57 @@
 		return y + '-' + (m < 10 ? '0' + m : m) + '-' + (day < 10 ? '0' + day : day)
 	}
 
-	async function addAdmin() {
-		const openid = newOpenid.value.trim()
-		if (!openid) {
+	function isAdminUser(openid) {
+		return admins.value.some(a => a.openid === openid)
+	}
+
+	// 按昵称 / openid 搜索用户
+	async function doSearch() {
+		const k = keyword.value.trim()
+		if (!k) {
 			uni.showToast({
-				title: '请输入 openid',
+				title: '请输入昵称或 openid',
 				icon: 'none'
 			})
 			return
 		}
+		searching.value = true
+		try {
+			const data = await callAuth({
+				action: 'searchUsers',
+				keyword: k
+			})
+			results.value = (data && data.list) || []
+			searched.value = true
+			await resolveAvatars(results.value)
+		} catch (e) {
+			uni.showToast({
+				title: (e && e.message) || '搜索失败',
+				icon: 'none'
+			})
+		} finally {
+			searching.value = false
+		}
+	}
+
+	// 选中的用户直接加入管理员白名单
+	async function addByUser(user) {
+		const openid = user && user.openid
+		if (!openid) return
 		adding.value = true
 		try {
 			await callAuth({
 				action: 'addAdmin',
 				openid
 			})
-			newOpenid.value = ''
-			await loadAdmins()
 			uni.showToast({
 				title: '已添加',
 				icon: 'success'
 			})
+			keyword.value = ''
+			results.value = []
+			searched.value = false
+			await loadAdmins()
 		} catch (e) {
 			uni.showToast({
 				title: (e && e.message) || '添加失败',
@@ -321,5 +385,67 @@
 		font-size: $fs-xs;
 		color: $text-secondary;
 		line-height: 1.5;
+	}
+
+	.search-row {
+		display: flex;
+		align-items: center;
+		gap: $space-sm;
+	}
+
+	.search-input {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.search-btn {
+		flex-shrink: 0;
+		height: 88rpx;
+		line-height: 88rpx;
+		padding: 0 36rpx;
+		font-size: $fs-md;
+		font-weight: 600;
+		color: $text-inverse;
+		background-image: $brand-gradient;
+		border-radius: $radius-md;
+	}
+
+	.search-results {
+		margin-top: $space-md;
+	}
+
+	.result-item {
+		display: flex;
+		align-items: center;
+		padding: $space-sm 0;
+		border-bottom: 1rpx solid $border-color;
+	}
+
+	.result-item:last-child {
+		border-bottom: none;
+	}
+
+	.result-info {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.result-add {
+		flex-shrink: 0;
+		margin-left: $space-md;
+		padding: 8rpx 30rpx;
+		font-size: $fs-sm;
+		color: $text-inverse;
+		background-color: $brand;
+		border-radius: $radius-pill;
+	}
+
+	.result-added {
+		flex-shrink: 0;
+		margin-left: $space-md;
+		font-size: $fs-sm;
+		color: $text-secondary;
 	}
 </style>

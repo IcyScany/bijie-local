@@ -12,6 +12,7 @@ export const ICONS = {
 	nearMe: '/static/icons/near_me.svg',
 	myLocation: '/static/icons/my_location.svg',
 	photoCamera: '/static/icons/photo_camera.svg',
+	addPhoto: '/static/icons/add_photo.svg',
 	locationOn: '/static/icons/location_on.svg',
 	arrowInsert: '/static/icons/arrow_insert.svg',
 	schedule: '/static/icons/schedule.svg',

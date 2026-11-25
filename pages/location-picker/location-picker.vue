@@ -28,7 +28,7 @@
 			<scroll-view class="list" scroll-y>
 				<view class="center-item">
 					<view class="item-info">
-						<text class="item-title">[位置]</text>
+						<text class="item-title">{{ centerName || '[位置]' }}</text>
 						<text class="item-addr">{{ centerAddress || (locating ? '正在定位...' : '正在获取位置信息...') }}</text>
 					</view>
 					<view class="confirm-btn" @click="confirm">确认选点</view>
@@ -65,10 +65,13 @@
 	const locating = ref(false)
 	const keyword = ref('')
 	const searching = ref(false)
+	const centerName = ref('')
 	const centerAddress = ref('')
 	const nearbyList = ref([])
 
 	let refreshTimer = null
+	// 程序主动跳转地图（搜索/点选）期间，抑制 regionchange 触发的反向刷新，避免覆盖结果列表
+	let skipRegionUntil = 0
 
 	onLoad((query) => {
 		const hasLongitude = query.longitude !== undefined && query.longitude !== ''
@@ -116,8 +119,9 @@
 		})
 	}
 
-	// 解析中心地址，并用返回的周边 POI 作为附近地点
-	async function reverseGeocode(lng, lat) {
+	// 解析中心名称/地址，并用返回的周边 POI 作为附近地点
+	// keepCenterInfo 为真时（点击列表/搜索选中）保留已设置的中心名称与地址
+	async function reverseGeocode(lng, lat, keepCenterInfo) {
 		try {
 			const res = await uniCloud.callFunction({
 				name: 'place-search',
@@ -128,8 +132,11 @@
 				}
 			})
 			const result = res.result || {}
-			centerAddress.value = result.address || ''
 			const list = result.list || []
+			if (!keepCenterInfo) {
+				centerAddress.value = result.address || ''
+				centerName.value = list.length ? (list[0].title || result.address || '') : (result.address || '')
+			}
 			nearbyList.value = list.filter(item => {
 				const ilng = Number(item.longitude)
 				const ilat = Number(item.latitude)
@@ -137,7 +144,10 @@
 				return Math.abs(ilng - lng) > 0.000001 || Math.abs(ilat - lat) > 0.000001
 			})
 		} catch (e) {
-			centerAddress.value = ''
+			if (!keepCenterInfo) {
+				centerAddress.value = ''
+				centerName.value = ''
+			}
 			nearbyList.value = []
 		}
 	}
@@ -170,6 +180,8 @@
 		const detail = e.detail || {}
 		const type = e.type || detail.type
 		if (type !== 'end') return
+		// 程序跳转刚触发的变化不刷新，避免把搜索结果覆盖成周边列表
+		if (Date.now() < skipRegionUntil) return
 		scheduleRefresh()
 	}
 
@@ -208,15 +220,17 @@
 		scheduleRefresh()
 	}
 
-	// 点击附近地点，将其移动为地图中心
+	// 点击附近地点：地图中心跳转到该地点
 	function pickNearby(item) {
 		const lng = Number(item.longitude)
 		const lat = Number(item.latitude)
 		if (!Number.isFinite(lng) || !Number.isFinite(lat)) return
 		longitude.value = lng
 		latitude.value = lat
+		centerName.value = item.title || item.address || ''
 		centerAddress.value = item.address || item.title || ''
-		scheduleRefresh()
+		// 跳转地图到该地点，但保持当前列表不变
+		skipRegionUntil = Date.now() + 1500
 	}
 
 	// 关键字搜索，命中后移动地图到第一个结果
@@ -236,14 +250,18 @@
 					icon: 'none'
 				})
 			}
-			const first = (result.list || [])[0]
+			const list = result.list || []
+			const first = list[0]
 			const lng = first ? Number(first.longitude) : NaN
 			const lat = first ? Number(first.latitude) : NaN
 			if (Number.isFinite(lng) && Number.isFinite(lat)) {
+				// 展示搜索结果并跳转到第一个结果，跳转期间不刷新列表，避免被反向解析覆盖
+				nearbyList.value = list
 				longitude.value = lng
 				latitude.value = lat
+				centerName.value = first.title || first.address || ''
 				centerAddress.value = first.address || first.title || ''
-				scheduleRefresh()
+				skipRegionUntil = Date.now() + 1500
 			} else {
 				uni.showToast({
 					title: '未找到相关地点',
@@ -260,19 +278,27 @@
 		}
 	}
 
-	// 以地图中心为所选位置回传
-	async function confirm() {
-		await updateCenter()
+	// 回传所选位置给上一页并返回
+	function selectAndBack(lng, lat, name, address) {
+		const lngNum = Number(lng)
+		const latNum = Number(lat)
+		if (!Number.isFinite(lngNum) || !Number.isFinite(latNum)) return
 		const eventChannel = instance.proxy.getOpenerEventChannel()
 		if (eventChannel && typeof eventChannel.emit === 'function') {
 			eventChannel.emit('selectLocation', {
-				longitude: longitude.value,
-				latitude: latitude.value,
-				name: centerAddress.value,
-				address: centerAddress.value
+				longitude: lngNum,
+				latitude: latNum,
+				name: name || address || '',
+				address: address || ''
 			})
 		}
 		uni.navigateBack()
+	}
+
+	// 以地图中心为所选位置回传
+	async function confirm() {
+		await updateCenter()
+		selectAndBack(longitude.value, latitude.value, centerName.value || centerAddress.value, centerAddress.value)
 	}
 </script>
 

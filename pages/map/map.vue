@@ -17,8 +17,10 @@
 			:default-collapsed="true"
 			:show-locate="!searchActive"
 			:external-touching="mapTouching"
+			:network-error="loadError"
 			@select="focusSpot"
 			@loadmore="loadMore"
+			@retry="reloadSpots"
 			@map-tap="closeDetail"
 			@locate="locateMe"
 		/>
@@ -62,7 +64,7 @@
 <script setup>
 	import { ref, computed, watch } from 'vue'
 	import { onShow, onHide } from '@dcloudio/uni-app'
-	import { ensureLogin, getToken, isAuthError, relogin } from '@/utils/auth.js'
+	import { ensureLogin, getToken, isAuthError, relogin, isAdmin } from '@/utils/auth.js'
 	import { getMapCategories } from '@/utils/placeTypes.js'
 	import { distanceMeters } from '@/utils/geo.js'
 	import { useSpotExplorer } from '@/utils/useSpotExplorer.js'
@@ -110,6 +112,8 @@
 
 	const loading = ref(false)
 	const loadingMore = ref(false)
+	// 云端加载失败标记（用于展示重试提示）
+	const loadError = ref(false)
 
 	// 收藏（云端存储）
 	const favoriteIds = ref([])
@@ -119,6 +123,8 @@
 	const page = ref(1)
 	const hasMore = ref(true)
 	const SPOTS_CACHE_KEY = 'spots_cache'
+	// 缓存有效期：超过则不再作为“秒出”数据展示，避免过旧数据掩盖故障
+	const CACHE_TTL = 30 * 60 * 1000
 
 	const uploadingImage = ref(false)
 
@@ -139,6 +145,7 @@
 		isFavorite,
 		markers,
 		resolveSpotImages,
+		loadComments,
 		onCommentAdded,
 		onCommentRemoved,
 		previewImage,
@@ -288,6 +295,10 @@
 		} catch (e) {}
 		loadFavorites()
 		fetchUserLocation()
+		// 返回页面时若详情仍打开，重新拉取该地点评价，保证数据最新
+		if (detailVisible.value) {
+			loadComments()
+		}
 	})
 
 	// 离开页面时收起搜索状态，恢复 tabbar
@@ -392,10 +403,18 @@
 		try {
 			const cache = uni.getStorageSync(SPOTS_CACHE_KEY)
 			if (cache && Array.isArray(cache.list)) {
-				return cache.list
+				const ts = Number(cache.ts) || 0
+				const fresh = !!ts && (Date.now() - ts) <= CACHE_TTL
+				return {
+					list: cache.list,
+					fresh
+				}
 			}
 		} catch (e) {}
-		return []
+		return {
+			list: [],
+			fresh: false
+		}
 	}
 
 	function writeCache(list) {
@@ -425,11 +444,14 @@
 
 	// 拉取已通过审核的地点：先用缓存秒出，再拉首屏
 	async function loadSpots(forceLoading) {
+		let usedCache = false
 		if (!spots.value.length) {
-			const cached = isDefaultFilter() ? readCache() : []
-			if (cached.length) {
-				spots.value = cached
-				resolveSpotImages(cached)
+			const cached = isDefaultFilter() ? readCache() : { list: [], fresh: false }
+			// 仅用未过期的缓存秒出；过旧缓存不再展示，避免掩盖真实故障
+			if (cached.list.length && cached.fresh) {
+				spots.value = cached.list
+				usedCache = true
+				resolveSpotImages(cached.list)
 			}
 		}
 		loading.value = forceLoading ? true : !spots.value.length
@@ -440,15 +462,15 @@
 			page.value = 1
 			hasMore.value = list.length < (res.total || 0)
 			resolveSpotImages(list)
+			loadError.value = false
 			if (isDefaultFilter()) writeCache(list)
 		} catch (err) {
-			if (!spots.value.length) {
-				const msg = (err && (err.errMsg || err.message)) || '地点加载失败'
-				uni.showToast({
-					title: msg,
-					icon: 'none'
-				})
-			}
+			loadError.value = true
+			const msg = (err && (err.errMsg || err.message)) || '地点加载失败'
+			uni.showToast({
+				title: (usedCache || spots.value.length) ? '网络异常，显示的是上次数据' : msg,
+				icon: 'none'
+			})
 		} finally {
 			loading.value = false
 		}
@@ -474,10 +496,17 @@
 		}
 	}
 
-	// 在当前页为地点补充图片（一次最多 5 张，需审核）
+	// 在当前页为地点补充图片（仅管理员，一次最多 5 张，需审核）
 	function chooseSpotImages() {
 		const spot = currentSpot.value
 		if (!spot || !spot._id) return
+		if (!isAdmin()) {
+			uni.showToast({
+				title: '仅管理员可补充图片',
+				icon: 'none'
+			})
+			return
+		}
 		const count = Math.max(1, Math.min(5, 9 - ((spot.images && spot.images.length) || 0)))
 		uni.chooseImage({
 			count,

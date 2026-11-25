@@ -140,15 +140,41 @@ async function getProfile(event) {
 		}
 	}
 	const admin = await isWhitelisted(payload.openid)
+	// 贡献积分/次数从共创明细实时聚合（与「共创者排行」同源），
+	// 不依赖 users 冗余字段，避免明细被删除后积分不同步
+	let contributionCount = 0
+	let contributionPoints = 0
+	let lastContributionDate = 0
+	try {
+		const $ = db.command.aggregate
+		const aggRes = await db.collection('contributions').aggregate()
+			.match({
+				openid: payload.openid,
+				status: 'approved'
+			})
+			.group({
+				_id: null,
+				points: $.sum('$points'),
+				count: $.sum(1),
+				lastDate: $.max('$create_date')
+			})
+			.end()
+		const stat = (aggRes.data && aggRes.data[0]) || null
+		if (stat) {
+			contributionCount = stat.count || 0
+			contributionPoints = stat.points || 0
+			lastContributionDate = stat.lastDate || 0
+		}
+	} catch (e) {}
 	return {
 		code: 0,
 		data: {
 			openid: payload.openid,
 			nickname: user.nickname || '',
 			avatar: user.avatar || '',
-			contributionCount: user.contribution_count || 0,
-			contributionPoints: user.contribution_points || 0,
-			lastContributionDate: user.last_contribution_date || 0,
+			contributionCount,
+			contributionPoints,
+			lastContributionDate,
 			isAdmin: admin,
 			isSuperAdmin: await isSuperAdmin(payload.openid)
 		}

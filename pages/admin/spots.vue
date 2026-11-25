@@ -64,33 +64,38 @@
 				<text class="form-title">{{ form.id ? '编辑地点' : '新增地点' }}</text>
 
 				<view class="field">
-					<text class="label">地点名称 *</text>
-					<input class="input" v-model="form.name" placeholder="请输入地点名称" />
+					<view class="locate-btn" @click="chooseLocation">
+						<text class="locate-icon">📍</text>
+						<text>地图选点</text>
+					</view>
+					<text v-if="hasLocation" class="locate-tip">已选择位置{{ form.address ? '：' + form.address : '' }}</text>
+					<text v-else class="locate-tip">点击地图搜索并选择位置</text>
 				</view>
 
 				<view class="field">
-					<text class="label">类型 *</text>
+					<text class="label">地点名称（必填）</text>
+					<input class="input" v-model="form.name" placeholder="如：某某烙锅摊" />
+				</view>
+
+				<view class="field">
+					<text class="label">类型（必填）</text>
 					<picker :range="typeOptions" range-key="label" @change="onTypeChange">
 						<view class="picker">{{ typeText(form.type) }}</view>
 					</picker>
 				</view>
 
 				<view class="field">
-					<text class="label">地址 *</text>
-					<view class="locate-btn" @click="chooseLocation">
-						<text class="locate-icon">📍</text>
-						<text>地图选点</text>
-					</view>
-					<input class="input" style="margin-top: 12rpx;" v-model="form.address" placeholder="请输入详细地址" />
+					<text class="label">地址（必填）</text>
+					<input class="input" v-model="form.address" placeholder="请输入详细地址" />
 				</view>
 
 				<view class="field">
-					<text class="label">备注</text>
-					<textarea class="textarea" v-model="form.remark" placeholder="补充描述（特色、营业时间等）" />
+					<text class="label">描述</text>
+					<textarea class="textarea" v-model="form.remark" placeholder="简单描述（特色、营业时间等）" />
 				</view>
 
 				<view class="field">
-					<text class="label">图片（最多9张）</text>
+					<text class="label">现场图片（可选，最多9张）</text>
 					<view class="image-list">
 						<view v-for="(img, i) in form.images" :key="i" class="image-item">
 							<image class="image-thumb" :src="imgUrl(img)" mode="aspectFill" @click="previewImages(form.images, i)"></image>
@@ -115,7 +120,7 @@
 <script setup>
 	import { ref, computed } from 'vue'
 	import { onLoad, onShow } from '@dcloudio/uni-app'
-	import { ensureLogin, isAdmin, getToken, isAuthError, relogin } from '@/utils/auth.js'
+	import { ensureLogin, isSuperAdmin, getToken, isAuthError, relogin } from '@/utils/auth.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
 	import { PLACE_TYPES, getTypeLabel, getTypeColor } from '@/utils/placeTypes.js'
 	import { compressImage, filterOversizeImages } from '@/utils/image.js'
@@ -172,6 +177,11 @@
 	const form = ref(emptyForm())
 	const imageMap = ref({})
 
+	// 是否已通过地图选点确定坐标
+	const hasLocation = computed(() => {
+		return form.value.longitude !== '' && form.value.latitude !== ''
+	})
+
 	// 云存储 fileID 需转换为临时链接后才能显示
 	function imgUrl(id) {
 		return id ? (imageMap.value[id] || '') : ''
@@ -196,9 +206,9 @@
 		try {
 			await ensureLogin()
 		} catch (e) {}
-		if (!isAdmin()) {
+		if (!isSuperAdmin()) {
 			uni.showToast({
-				title: '仅管理员可访问',
+				title: '仅超级管理员可访问',
 				icon: 'none'
 			})
 			setTimeout(() => {
@@ -819,6 +829,14 @@
 
 	.locate-icon {
 		margin-right: 8rpx;
+	}
+
+	.locate-tip {
+		display: block;
+		margin-top: 10rpx;
+		font-size: 24rpx;
+		color: $text-secondary;
+		line-height: 1.5;
 	}
 
 	.image-list {

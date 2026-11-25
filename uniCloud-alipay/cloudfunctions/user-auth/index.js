@@ -12,7 +12,8 @@ const ACTIONS = Object.assign(Object.create(null), {
 	profile: auth.getProfile,
 	listAdmins: admin.listAdmins,
 	addAdmin: admin.addAdmin,
-	removeAdmin: admin.removeAdmin
+	removeAdmin: admin.removeAdmin,
+	searchUsers: admin.searchUsers
 })
 
 // 云函数入口：按 action 分发到对应业务处理器

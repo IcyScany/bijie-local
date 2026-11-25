@@ -436,6 +436,8 @@ $fs-2xl: 42rpx;
 }
 
 .gm-textarea {
+	width: 100%;
+	display: block;
 	min-height: 200rpx;
 	padding: 20rpx $space-md;
 	font-size: 28rpx;

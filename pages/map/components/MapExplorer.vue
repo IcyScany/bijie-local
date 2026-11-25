@@ -40,6 +40,11 @@
 				</view>
 			</template>
 
+			<view v-if="networkError" class="gm-net-error" @click="emit('retry')">
+				<text class="gm-net-error-text">网络异常，显示的是上次数据</text>
+				<text class="gm-net-error-retry">点击重试</text>
+			</view>
+
 			<view v-if="loading" class="gm-skeleton">
 				<view v-for="n in 3" :key="n" class="gm-place-item-card">
 					<view class="gm-place-card-main">
@@ -209,10 +214,15 @@
 		externalTouching: {
 			type: Boolean,
 			default: false
+		},
+		// 云端加载失败：展示重试提示条
+		networkError: {
+			type: Boolean,
+			default: false
 		}
 	})
 
-	const emit = defineEmits(['select', 'loadmore', 'update:sortBy', 'mapTap', 'locate'])
+	const emit = defineEmits(['select', 'loadmore', 'update:sortBy', 'mapTap', 'locate', 'retry'])
 
 	const instance = getCurrentInstance()
 
@@ -296,7 +306,7 @@
 	}
 
 	// 放大地图到一定级别时，marker 常显名称
-	const NAME_MIN_SCALE = 14
+	const NAME_MIN_SCALE = 15
 	const currentScale = ref(props.scale || 13)
 	const showMarkerName = computed(() => currentScale.value >= NAME_MIN_SCALE)
 
@@ -498,6 +508,29 @@
 		100% {
 			background-position: 0 0;
 		}
+	}
+
+	/* 网络异常重试提示 */
+	.gm-net-error {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin: 0 24rpx 12rpx;
+		padding: 14rpx 20rpx;
+		background-color: #FEF1E6;
+		border-radius: 12rpx;
+	}
+
+	.gm-net-error-text {
+		font-size: 24rpx;
+		color: #B26A00;
+	}
+
+	.gm-net-error-retry {
+		margin-left: 12rpx;
+		font-size: 24rpx;
+		font-weight: 600;
+		color: #1A73E8;
 	}
 
 	/* 列表标题 + 排序 */

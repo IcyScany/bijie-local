@@ -51,7 +51,7 @@
 		</scroll-view>
 
 		<view class="bottom-bar">
-			<button class="write-btn" @click="openComposer">
+			<button v-if="canManage" class="write-btn" @click="openComposer">
 				<text class="write-icon">✎</text> 写评价
 			</button>
 		</view>
@@ -90,7 +90,7 @@
 <script setup>
 	import { ref, computed } from 'vue'
 	import { onLoad } from '@dcloudio/uni-app'
-	import { ensureLogin, getToken, isAuthError, relogin } from '@/utils/auth.js'
+	import { ensureLogin, getToken, isAuthError, relogin, isAdmin } from '@/utils/auth.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
 	import AppSkeleton from '@/components/AppSkeleton.vue'
 
@@ -109,6 +109,8 @@
 	const content = ref('')
 	const submitting = ref(false)
 	const avatarMap = ref({})
+	// 仅管理员可发布评价
+	const canManage = ref(isAdmin())
 
 	const rateText = computed(() => {
 		const map = {
@@ -124,6 +126,7 @@
 	const myOpenid = uni.getStorageSync('uni_openid') || ''
 
 	onLoad((query) => {
+		canManage.value = isAdmin()
 		spotId.value = query.spotId || ''
 		spotName.value = query.spotName ? decodeURIComponent(query.spotName) : ''
 		loadComments()
@@ -191,6 +194,13 @@
 	}
 
 	async function openComposer() {
+		if (!canManage.value) {
+			uni.showToast({
+				title: '仅管理员可发布评价',
+				icon: 'none'
+			})
+			return
+		}
 		try {
 			await ensureLogin()
 		} catch (e) {

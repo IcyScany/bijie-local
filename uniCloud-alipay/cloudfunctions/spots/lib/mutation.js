@@ -3,17 +3,16 @@
 const db = uniCloud.database()
 const dbCmd = db.command
 const collection = db.collection('spots')
-const { parseToken, requireAdmin, resolveContributorName } = require('cloud-auth')
+const { requireAdmin, requireSuperAdmin, resolveContributorName } = require('cloud-auth')
 const { TYPE_LIST, REPORT_TYPE_LIST } = require('./constants')
 const { buildUpdateData, normalizeImages } = require('./helpers')
 const { recordContribution, syncSpotContributions, revokeSpotContributions } = require('./contributions')
 
-// 用户为已通过审核的地点补充图片：生成待审核投稿（审核通过后再合并到目标地点）
+// 管理员为已通过审核的地点补充图片：生成待审核投稿（审核通过后再合并到目标地点）
 async function addImages(id, images, token) {
-	const payload = parseToken(token)
-	if (!payload) {
-		throw new Error('登录状态失效，请重新登录')
-	}
+	const openid = await requireAdmin(token, {
+		message: '仅管理员可补充图片'
+	})
 	if (!id) {
 		throw new Error('缺少地点ID')
 	}
@@ -30,7 +29,7 @@ async function addImages(id, images, token) {
 	}
 	const spot = docRes.data[0]
 	const now = Date.now()
-	const contributorName = await resolveContributorName(payload.openid)
+	const contributorName = await resolveContributorName(openid)
 
 	// 复用 spots 记录作为待审核投稿：report_type=image，target_id 指向目标地点
 	const addRes = await collection.add({
@@ -44,13 +43,13 @@ async function addImages(id, images, token) {
 		source: 'user',
 		report_type: 'image',
 		target_id: id,
-		contributor_openid: payload.openid,
+		contributor_openid: openid,
 		contributor_name: contributorName,
 		create_date: now,
 		update_date: now
 	})
 
-	await recordContribution(payload.openid, 'image', {
+	await recordContribution(openid, 'image', {
 		spotId: addRes.id,
 		spotName: spot.name || '',
 		reportType: 'image',
@@ -65,7 +64,9 @@ async function addImages(id, images, token) {
 
 // 管理员新增地点（默认已通过）
 async function add(data = {}, token) {
-	const openid = await requireAdmin(token)
+	const openid = await requireSuperAdmin(token, {
+		message: '仅超级管理员可管理地点'
+	})
 	const name = String(data.name || '').trim()
 	if (!name) {
 		throw new Error('地点名称不能为空')
@@ -103,7 +104,9 @@ async function add(data = {}, token) {
 
 // 管理员修改地点
 async function update(id, data = {}, token) {
-	const openid = await requireAdmin(token)
+	const openid = await requireSuperAdmin(token, {
+		message: '仅超级管理员可管理地点'
+	})
 	if (!id) {
 		throw new Error('缺少地点ID')
 	}
@@ -132,7 +135,9 @@ async function update(id, data = {}, token) {
 
 // 删除地点，支持传入单个ID或ID数组
 async function remove(id, token) {
-	await requireAdmin(token)
+	await requireSuperAdmin(token, {
+		message: '仅超级管理员可管理地点'
+	})
 	if (!id) {
 		throw new Error('缺少地点ID')
 	}
@@ -147,8 +152,11 @@ async function remove(id, token) {
 	}
 }
 
-// 普通用户匿名提交新地点或更新反馈，进入待审核（登录用户自动记录贡献者）
+// 管理员提交新地点或更新反馈，进入待审核（自动记录贡献者）
 async function submit(data = {}, token) {
+	const openid = await requireAdmin(token, {
+		message: '仅管理员可提交地点信息'
+	})
 	const reportType = REPORT_TYPE_LIST.includes(data.report_type) ? data.report_type : 'new'
 
 	if (reportType === 'new') {
@@ -174,11 +182,8 @@ async function submit(data = {}, token) {
 	record.status = 'pending'
 	record.source = 'user'
 	record.report_type = reportType
-	const payload = parseToken(token)
-	if (payload && payload.openid) {
-		record.contributor_openid = payload.openid
-		record.contributor_name = await resolveContributorName(payload.openid)
-	}
+	record.contributor_openid = openid
+	record.contributor_name = await resolveContributorName(openid)
 	if (data.report_reason !== undefined) {
 		record.report_reason = String(data.report_reason).trim()
 	}
@@ -189,15 +194,13 @@ async function submit(data = {}, token) {
 	record.update_date = Date.now()
 
 	const res = await collection.add(record)
-	// 提交即记录贡献明细（待审核，不计数），便于用户查看自己的贡献记录
-	if (record.contributor_openid) {
-		await recordContribution(record.contributor_openid, 'submit', {
-			spotId: res.id,
-			spotName: record.name,
-			reportType: record.report_type,
-			reportReason: record.report_reason || ''
-		}, 'pending')
-	}
+	// 提交即记录贡献明细（待审核，不计数），便于查看贡献记录
+	await recordContribution(openid, 'submit', {
+		spotId: res.id,
+		spotName: record.name,
+		reportType: record.report_type,
+		reportReason: record.report_reason || ''
+	}, 'pending')
 	return {
 		id: res.id
 	}
@@ -205,7 +208,9 @@ async function submit(data = {}, token) {
 
 // 管理员审核：通过 / 驳回（可带原因）/ 撤回驳回（pending）
 async function review(id, status, token, reason) {
-	await requireAdmin(token)
+	await requireSuperAdmin(token, {
+		message: '仅超级管理员可审核'
+	})
 	if (!id) {
 		throw new Error('缺少地点ID')
 	}
@@ -267,7 +272,9 @@ async function review(id, status, token, reason) {
 
 // 审核通过并发布：管理员可先编辑地点信息再发布（图片补充投稿仍走合并逻辑）
 async function publish(id, data = {}, token) {
-	const openid = await requireAdmin(token)
+	const openid = await requireSuperAdmin(token, {
+		message: '仅超级管理员可审核'
+	})
 	if (!id) {
 		throw new Error('缺少地点ID')
 	}

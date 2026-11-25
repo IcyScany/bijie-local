@@ -111,7 +111,7 @@
 <script setup>
 	import { ref, computed } from 'vue'
 	import { onLoad, onShow } from '@dcloudio/uni-app'
-	import { getToken } from '@/utils/auth.js'
+	import { getToken, isAdmin } from '@/utils/auth.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
 	import { PLACE_TYPES, getTypeLabel } from '@/utils/placeTypes.js'
 	import { compressImage, filterOversizeImages } from '@/utils/image.js'
@@ -176,6 +176,18 @@
 	})
 
 	onLoad(() => {
+		if (!isAdmin()) {
+			uni.showToast({
+				title: '仅管理员可操作',
+				icon: 'none'
+			})
+			setTimeout(() => {
+				uni.switchTab({
+					url: '/pages/map/map'
+				})
+			}, 800)
+			return
+		}
 		loadSpots()
 	})
 

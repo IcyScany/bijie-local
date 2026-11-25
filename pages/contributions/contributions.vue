@@ -94,7 +94,7 @@
 <script setup>
 	import { ref } from 'vue'
 	import { onShow } from '@dcloudio/uni-app'
-	import { ensureLogin, getToken, isAuthError, relogin } from '@/utils/auth.js'
+	import { ensureLogin, getToken, isAuthError, relogin, isAdmin } from '@/utils/auth.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
 	import PointsRuleCard from '@/components/PointsRuleCard.vue'
 
@@ -165,6 +165,18 @@
 	}
 
 	onShow(() => {
+		if (!isAdmin()) {
+			uni.showToast({
+				title: '仅管理员可访问',
+				icon: 'none'
+			})
+			setTimeout(() => {
+				uni.switchTab({
+					url: '/pages/map/map'
+				})
+			}, 800)
+			return
+		}
 		load()
 	})
 

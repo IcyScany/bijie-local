@@ -105,8 +105,43 @@ async function removeAdmin(event) {
 	}
 }
 
+// 搜索用户（仅超级管理员）：按昵称或 openid 模糊匹配，便于直接选中添加管理员
+async function searchUsers(event) {
+	await requireSuperAdmin(event.token, { message: '仅超级管理员可操作' })
+	const keyword = String(event.keyword || '').trim()
+	if (!keyword) {
+		return {
+			code: 0,
+			data: {
+				list: []
+			}
+		}
+	}
+	const reg = db.RegExp({
+		regexp: keyword,
+		options: 'i'
+	})
+	const res = await db.collection('users').where(db.command.or({
+		nickname: reg
+	}, {
+		openid: reg
+	})).orderBy('last_login_date', 'desc').limit(20).get()
+	const list = (res.data || []).map(u => ({
+		openid: u.openid,
+		nickname: u.nickname || ('用户' + String(u.openid).slice(-4)),
+		avatar: u.avatar || ''
+	}))
+	return {
+		code: 0,
+		data: {
+			list
+		}
+	}
+}
+
 module.exports = {
 	listAdmins,
 	addAdmin,
-	removeAdmin
+	removeAdmin,
+	searchUsers
 }

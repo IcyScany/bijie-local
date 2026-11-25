@@ -12,7 +12,9 @@
 	// 应用启动时静默登录，获取用户身份与权限
 	onLaunch(() => {
 		console.log('App Launch')
-		ensureLogin().catch(() => {})
+		ensureLogin().catch((e) => {
+			console.error('[auth] 启动登录失败', e)
+		})
 	})
 	onShow(() => {
 		console.log('App Show')

@@ -5,10 +5,10 @@
 		:class="{ 'gm-dragging': isDragging }"
 		:style="{ height: currentHeight + 'vh' }"
 		@click.stop
-		@touchstart="onDragStart"
-		@touchmove="onDragMove"
-		@touchend="onDragEnd"
-		@touchcancel="onDragEnd"
+		@touchstart.capture="onDragStart"
+		@touchmove.capture="onDragMove"
+		@touchend.capture="onDragEnd"
+		@touchcancel.capture="onDragEnd"
 	>
 		<!-- 顶部区域：把手 + 头部 -->
 		<view class="gm-sheet-drag-area" @click="onHeaderClick">

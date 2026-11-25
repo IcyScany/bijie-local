@@ -20,7 +20,7 @@ module.exports = {
 		return query.getDetail(id)
 	},
 
-	// 为已通过审核的地点补充图片（登录用户即可）
+	// 管理员为已通过审核的地点补充图片
 	async addImages(id, images, token) {
 		return mutation.addImages(id, images, token)
 	},
@@ -40,7 +40,7 @@ module.exports = {
 		return mutation.remove(id, token)
 	},
 
-	// 普通用户匿名提交新地点或更新反馈，进入待审核
+	// 管理员提交新地点或更新反馈，进入待审核
 	async submit(data = {}, token) {
 		return mutation.submit(data, token)
 	},

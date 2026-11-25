@@ -45,10 +45,10 @@
 							<button class="gm-btn gm-btn-tonal" style="display: flex; align-items: center; justify-content: center; height: 68rpx; line-height: 1; padding: 0 26rpx; font-size: 27rpx;" @click="emit('favorite')">
 								<app-icon icon="bookmarkStar" width="34rpx" style="margin-right: 8rpx;" />{{ favorite ? '已收藏' : '收藏' }}
 							</button>
-							<button class="gm-btn gm-btn-tonal" style="display: flex; align-items: center; justify-content: center; height: 68rpx; line-height: 1; padding: 0 26rpx; font-size: 27rpx;" @click="emit('addImage')">
-								<app-icon icon="photoCamera" width="34rpx" style="margin-right: 8rpx;" />添加图片
+							<button v-if="canManage" class="gm-btn gm-btn-tonal" style="display: flex; align-items: center; justify-content: center; height: 68rpx; line-height: 1; padding: 0 26rpx; font-size: 27rpx;" @click="emit('addImage')">
+								<app-icon icon="addPhoto" width="34rpx" style="margin-right: 8rpx;" />添加图片
 							</button>
-							<button class="gm-btn gm-btn-tonal" style="display: flex; align-items: center; justify-content: center; height: 68rpx; line-height: 1; padding: 0 26rpx; font-size: 27rpx;" @click="openFeedback">
+							<button v-if="canManage" class="gm-btn gm-btn-tonal" style="display: flex; align-items: center; justify-content: center; height: 68rpx; line-height: 1; padding: 0 26rpx; font-size: 27rpx;" @click="openFeedback">
 								<app-icon icon="rateReview" width="34rpx" style="margin-right: 8rpx;" />共创
 							</button>
 						</view>
@@ -123,7 +123,7 @@
 							<!-- 无评价提示 -->
 							<view v-if="!commentsLoading && !comments.length" style="text-align: center; padding: 40rpx 0;">
 								<text class="gm-text-secondary" style="display: block; margin-bottom: 20rpx;">还没有评价，来抢沙发</text>
-								<button class="gm-btn gm-btn-outlined" style="width: 100%; height: 72rpx; line-height: 72rpx; font-size: 26rpx; border: 2rpx solid #1A73E8; color: #1A73E8; background-color: transparent;" @click="openComposer">写评价</button>
+								<button v-if="canManage" class="gm-btn gm-btn-outlined" style="width: 100%; height: 72rpx; line-height: 72rpx; font-size: 26rpx; border: 2rpx solid #1A73E8; color: #1A73E8; background-color: transparent;" @click="openComposer">写评价</button>
 							</view>
 
 							<!-- 加载状态 -->
@@ -150,7 +150,7 @@
 								</view>
 
 								<!-- 写评价按钮 -->
-								<button class="gm-btn gm-btn-outlined" style="width: 100%; height: 72rpx; line-height: 72rpx; font-size: 26rpx; border: 2rpx solid #1A73E8; color: #1A73E8; background-color: transparent; margin-top: 20rpx;" @click="openComposer">写评价</button>
+								<button v-if="canManage" class="gm-btn gm-btn-outlined" style="width: 100%; height: 72rpx; line-height: 72rpx; font-size: 26rpx; border: 2rpx solid #1A73E8; color: #1A73E8; background-color: transparent; margin-top: 20rpx;" @click="openComposer">写评价</button>
 							</view>
 						</view>
 
@@ -161,7 +161,7 @@
 		</DragSheet>
 
 		<!-- 写评价弹窗 -->
-		<view v-if="composerVisible" class="gm-overlay gm-overlay-center" @click="closeComposer">
+		<view v-if="canManage && composerVisible" class="gm-overlay gm-overlay-center" @click="closeComposer">
 			<view class="gm-dialog" @click.stop>
 				<text class="gm-dialog-title">评价「{{ spot.name }}」</text>
 				<view class="gm-flex gm-flex-center gm-py-lg">
@@ -183,7 +183,7 @@
 		</view>
 
 		<!-- 反馈弹窗 -->
-		<view v-if="feedbackVisible" class="gm-overlay gm-overlay-center" @click="closeFeedback">
+		<view v-if="canManage && feedbackVisible" class="gm-overlay gm-overlay-center" @click="closeFeedback">
 			<view class="gm-dialog" @click.stop>
 				<text class="gm-dialog-title">反馈问题</text>
 				<textarea class="gm-textarea gm-mt-md" v-model="feedbackText" placeholder="如：摊位已搬迁到对面 / 信息有误…" maxlength="300" />
@@ -261,6 +261,9 @@
 
 	const emit = defineEmits(['close', 'preview', 'route', 'comment-added', 'comment-removed', 'favorite', 'addImage', 'sheet-touching'])
 
+	// 仅管理员可执行评价/反馈/补充图片等操作
+	const canManage = ref(isAdmin())
+
 	// 标签：overview | reviews
 	const activeTab = ref('overview')
 
@@ -295,6 +298,7 @@
 
 	watch(() => props.visible, (v) => {
 		if (v) {
+			canManage.value = isAdmin()
 			measureRange()
 			// 列表进入：直接全屏展开；地图点选：半屏
 			sheetHeight.value = props.full ?
@@ -558,7 +562,7 @@
 			reason: String(feedbackText.value || '').trim()
 		})
 		feedbackVisible.value = false
-		uni.switchTab({
+		uni.navigateTo({
 			url: '/pages/contribute/contribute'
 		})
 	}

@@ -6,7 +6,7 @@ const db = uniCloud.database()
 const dbCmd = db.command
 const collection = db.collection('spot-comments')
 
-const { parseToken, isWhitelisted, getUserByOpenid } = require('cloud-auth')
+const { parseToken, isWhitelisted, getUserByOpenid, requireAdmin } = require('cloud-auth')
 
 // 评分取整并限制在 1~5，非法值返回 0
 function clampRating(value) {
@@ -108,12 +108,11 @@ module.exports = {
 		}
 	},
 
-	// 新增评价（需登录）
+	// 新增评价（仅管理员）
 	async addComment(data = {}, token) {
-		const payload = parseToken(token)
-		if (!payload) {
-			throw new Error('登录状态失效，请重新登录')
-		}
+		const openid = await requireAdmin(token, {
+			message: '仅管理员可发布评价'
+		})
 		const spotId = data.spot_id
 		if (!spotId) {
 			throw new Error('缺少地点标识')
@@ -127,14 +126,14 @@ module.exports = {
 			throw new Error('请输入评价内容')
 		}
 
-		const user = await getUserByOpenid(payload.openid)
-		const nickname = (user && user.nickname) || ('用户' + String(payload.openid).slice(-4))
+		const user = await getUserByOpenid(openid)
+		const nickname = (user && user.nickname) || ('管理员' + String(openid).slice(-4))
 		const avatar = (user && user.avatar) || ''
 		const now = Date.now()
 
 		const addRes = await collection.add({
 			spot_id: spotId,
-			openid: payload.openid,
+			openid,
 			nickname,
 			avatar,
 			rating,
@@ -147,7 +146,7 @@ module.exports = {
 			data: {
 				_id: addRes.id,
 				spot_id: spotId,
-				openid: payload.openid,
+				openid,
 				nickname,
 				avatar,
 				rating,

@@ -119,7 +119,7 @@
 <script setup>
 	import { ref, computed } from 'vue'
 	import { onLoad, onShow } from '@dcloudio/uni-app'
-	import { ensureLogin, isAdmin, getToken, isAuthError, relogin } from '@/utils/auth.js'
+	import { ensureLogin, isSuperAdmin, getToken, isAuthError, relogin } from '@/utils/auth.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
 	import { PLACE_TYPES, getTypeLabel, getTypeColor } from '@/utils/placeTypes.js'
 	import { compressImage, filterOversizeImages } from '@/utils/image.js'
@@ -204,9 +204,9 @@
 		try {
 			await ensureLogin()
 		} catch (e) {}
-		if (!isAdmin()) {
+		if (!isSuperAdmin()) {
 			uni.showToast({
-				title: '仅管理员可访问',
+				title: '仅超级管理员可访问',
 				icon: 'none'
 			})
 			setTimeout(() => {
