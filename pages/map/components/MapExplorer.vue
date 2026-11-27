@@ -3,7 +3,7 @@
 		<map
 			id="localMap"
 			class="map"
-			style="width: 100%; height: 100%; z-index: 1; pointer-events: auto;"
+			:style="{ width: '100%', height: mapHeightVh + 'vh', zIndex: 1, pointerEvents: 'auto', transition: sheetTouching ? 'none' : 'height 150ms cubic-bezier(0.4, 0, 0.2, 1)' }"
 			:longitude="center.longitude"
 			:latitude="center.latitude"
 			:scale="scale"
@@ -26,12 +26,13 @@
 			v-model:expanded="sheetExpanded"
 			:min-height="sheetRange.min"
 			:max-height="sheetRange.max"
+			:content-at-top="listAtTop"
 			@sheet-touchstart="onSheetTouchStart"
 			@sheet-touchend="onSheetTouchEnd"
 		>
 			<template #header>
 				<!-- 列表标题 + 排序 -->
-				<view class="gm-list-header">
+				<view class="gm-list-header" :class="{ 'gm-list-header-bordered': !listAtTop }">
 					<text class="gm-list-title">{{ categoryLabel }}</text>
 					<view class="gm-list-sort">
 						<text class="gm-sort-item" :class="{ 'gm-sort-active': sortBy === 'rating' }" @click.stop="toggleSort('rating')">评分</text>
@@ -60,9 +61,8 @@
 			<view v-else-if="!list.length" class="gm-empty" style="padding-bottom: 60rpx;">
 				<text style="font-size: 56rpx; opacity: 0.3; margin-bottom: 24rpx;">📭</text>
 				<text class="gm-empty-title">暂无地点</text>
-				<text class="gm-empty-subtitle">请到地点管理添加</text>
 			</view>
-			<scroll-view v-else style="flex: 1; height: 0; min-height: 0;" :scroll-y="sheetExpanded" :lower-threshold="80" @scrolltolower="emit('loadmore')">
+			<scroll-view v-else style="flex: 1; height: 0; min-height: 0;" :scroll-y="sheetExpanded" :lower-threshold="80" 			@scrolltolower="emit('loadmore')" @scroll="onSheetScroll" @touchstart="onSheetTouchStart" @touchend="onSheetTouchEnd" @touchcancel="onSheetTouchEnd">
 				<view class="gm-place-list">
 					<view
 						v-for="(spot, index) in list"
@@ -192,6 +192,21 @@
 			type: Boolean,
 			default: false
 		},
+		// 详情面板是否打开（打开时地图按其高度收缩，且地图仍可拖动）
+		detailActive: {
+			type: Boolean,
+			default: false
+		},
+		// 详情面板高度（vh）
+		detailHeight: {
+			type: Number,
+			default: 0
+		},
+		// 是否处于搜索状态（搜索时地图铺满并锁死）
+		searchActive: {
+			type: Boolean,
+			default: false
+		},
 		// 是否显示「回到我的位置」按钮
 		showLocate: {
 			type: Boolean,
@@ -289,7 +304,35 @@
 		sheetTouching.value = false
 	}
 
-	const interactive = computed(() => !sheetTouching.value && !props.externalTouching)
+	// 卡片是否正在滚动：scroll-view 的 @scroll 是自身触发的，比触摸事件更可靠。
+	// 滚动期间连同触摸标志一起关闭地图手势，避免卡片滚动带偏地图。
+	const sheetScrolling = ref(false)
+	// 列表内容是否已滚到顶部（决定向下拖动是滚动列表还是收起面板）
+	const listAtTop = ref(true)
+	let scrollTimer = null
+	function onSheetScroll(e) {
+		const top = (e && e.detail && Number(e.detail.scrollTop)) || 0
+		listAtTop.value = top <= 1
+		sheetScrolling.value = true
+		if (scrollTimer) clearTimeout(scrollTimer)
+		scrollTimer = setTimeout(() => {
+			sheetScrolling.value = false
+		}, 200)
+	}
+
+	// 地图高度（vh）：保证地图底部 = 当前底层面板的顶部（两者不重叠）。
+	// - 详情打开：按详情高度收缩（地图在详情上方，仍可拖动）
+	// - 搜索打开：铺满（地图锁死）
+	// - 否则：按列表高度收缩
+	const mapHeightVh = computed(() => {
+		if (props.detailActive) return 100 - props.detailHeight
+		if (props.searchActive) return 100
+		return 100 - bottomSheetHeight.value
+	})
+
+	// 地图手势是否可用：地图与卡片物理不重叠，卡片触摸落不到地图上，
+	// 所以地图可以一直开着（拖动跟手、快划即时响应）。仅搜索时锁死。
+	const interactive = computed(() => !props.searchActive)
 
 	// 点击标记时会连带触发地图 tap，记录时间避免刚选中就被关闭
 	let markerTappedAt = 0
@@ -299,16 +342,19 @@
 		emit('select', e.detail.markerId, 'map')
 	}
 
-	// 点击地图空白处（用于关闭详情弹层）
+	// 点击地图空白处：
+	// - 列表展开时：先把面板收起（地图手势与面板互斥，收起后地图才可操作）
+	// - 其余情况：视为关闭详情弹层
 	function onMapTap() {
 		if (Date.now() - markerTappedAt < 350) return
+		if (!props.hideSheet && bottomSheetHeight.value > sheetRange.value.min + 0.5) {
+			bottomSheetHeight.value = sheetRange.value.min
+			return
+		}
 		emit('mapTap')
 	}
 
-	// 放大地图到一定级别时，marker 常显名称
-	const NAME_MIN_SCALE = 15
 	const currentScale = ref(props.scale || 13)
-	const showMarkerName = computed(() => currentScale.value >= NAME_MIN_SCALE)
 
 	// 按当前缩放级别计算去重网格步长（度）：缩小时网格大、更多点合并
 	function gridStep(scale) {
@@ -316,77 +362,142 @@
 		return (40 * 360) / (256 * Math.pow(2, s))
 	}
 
-	// 低于该缩放级别时，相近地点中随机一个显示为圆点
+	// 放大到该缩放级别后，代表点才附带名称
 	const CLUSTER_MAX_SCALE = 15
+	// 标签网格比图标网格更粗的倍数：越大标签越稀疏
+	const LABEL_GRID_FACTOR = 3
+
+	// marker 到用户位置的距离（米）
+	function markerDistance(m) {
+		const loc = props.userLocation
+		if (!loc || !m) return null
+		const d = distanceMeters(loc.latitude, loc.longitude, m.latitude, m.longitude)
+		return Number.isFinite(d) ? d : null
+	}
+
+	// a 是否比 b 更适合当网格的「代表」，固定优先级：
+	// 评分高 > 距离近 > 评论数多 > 名称首字母（保证同一区域内结果稳定、不随缩放跳变）
+	function isBetterMarker(a, b) {
+		if (!b) return true
+		// 1. 评分高优先
+		const ar = Number(a && a.rating) || 0
+		const br = Number(b && b.rating) || 0
+		if (ar !== br) return ar > br
+		// 2. 距离近优先（无定位时该项跳过）
+		const ad = markerDistance(a)
+		const bd = markerDistance(b)
+		if (ad == null && bd != null) return false
+		if (ad != null && bd == null) return true
+		if (ad != null && bd != null && ad !== bd) return ad < bd
+		// 3. 评论数多优先
+		const ac = Number(a && a.rating_count) || 0
+		const bc = Number(b && b.rating_count) || 0
+		if (ac !== bc) return ac > bc
+		// 4. 名称排序
+		return String((a && a.title) || '') < String((b && b.title) || '')
+	}
+
+	// 按网格抽稀：每个网格单元只保留一个代表点（完整图标/名称），其余为圆点。
+	// 用 floor 生成「嵌套网格」：缩放时单元只细分、不平移，代表点保持稳定
+	// （只会随放大越来越多，不会先显示后消失）。
+	// candidates：可选的候选下标数组（用于在"已是完整图标"的点里再抽一层）
+	function pickGridRepresentatives(list, step, candidates) {
+		const groups = {}
+		const indexes = candidates || list.map((_, i) => i)
+		indexes.forEach(i => {
+			const m = list[i]
+			if (!m) return
+			const key = Math.floor(m.longitude / step) + ',' + Math.floor(m.latitude / step)
+			if (!groups[key]) groups[key] = []
+			groups[key].push(i)
+		})
+		const result = {}
+		Object.keys(groups).forEach(key => {
+			const arr = groups[key]
+			let best = -1
+			arr.forEach(i => {
+				if (best === -1) {
+					best = i
+					return
+				}
+				if (isBetterMarker(list[i], list[best])) best = i
+			})
+			if (best !== -1) result[best] = true
+		})
+		return result
+	}
+
+	// 常显名称气泡对象
+	function nameCallout(title) {
+		return {
+			content: title,
+			color: '#202124',
+			fontSize: 13,
+			borderRadius: 8,
+			bgColor: '#FFFFFF',
+			padding: 4,
+			textAlign: 'center',
+			display: 'ALWAYS'
+		}
+	}
 
 	const displayMarkers = computed(() => {
 		const list = props.markers || []
-		// 放大到阈值以上：完整 marker（名称按缩放级别常显）
-		if (currentScale.value >= CLUSTER_MAX_SCALE) {
-			const showName = showMarkerName.value
-			return list.map(m => {
-				if (!m) return m
+		const scale = currentScale.value
+		// 放大到该阈值后，代表点才附带名称
+		const showLabel = scale >= CLUSTER_MAX_SCALE
+		// 图标：按网格分组，每格只保留一个「代表点」为完整图标，其余为圆点。
+		// 放大 → 网格变细 → 完整图标逐渐增多，直到最大级别。
+		const step = gridStep(scale)
+		const repIndexes = pickGridRepresentatives(list, step)
+		// 标签：用更粗的网格（比图标更稀疏），且只在完整图标（代表点）上再抽一层
+		let labelIndexes = null
+		if (showLabel) {
+			const iconRepIndexes = Object.keys(repIndexes).map(Number)
+			labelIndexes = pickGridRepresentatives(list, step * LABEL_GRID_FACTOR, iconRepIndexes)
+		}
+		return list.map((m, i) => {
+			if (!m) return m
+			// 选中地点：无论是否达到阈值，都显示完整图标 + 名称
+			if (m.selected) {
+				const copy = Object.assign({}, m, {
+					zIndex: 1000
+				})
+				delete copy.label
+				if (m.title) {
+					copy.callout = nameCallout(m.title)
+				}
+				return copy
+			}
+			if (repIndexes[i]) {
+				// 代表点：完整图标（放大到阈值后附带名称）
 				const copy = Object.assign({}, m, {
 					zIndex: 999
 				})
 				delete copy.callout
 				delete copy.label
-				if (showName && m.title) {
+				if (labelIndexes && labelIndexes[i] && m.title) {
 					// 用常显气泡展示地点名称：气泡绘制在 marker 图层之上，
 					// 避免被相邻 marker 遮挡（marker.label 会随 markers 数组顺序被压盖）
-					copy.callout = {
-						content: m.title,
-						color: '#202124',
-						fontSize: 13,
-						borderRadius: 8,
-						bgColor: '#FFFFFF',
-						padding: 4,
-						textAlign: 'center',
-						display: 'ALWAYS'
-					}
+					copy.callout = nameCallout(m.title)
 				}
 				return copy
-			})
-		}
-		// 缩小状态：相近地点中随机选一个显示为圆点，其余保持正常 marker
-		const step = gridStep(currentScale.value)
-		const groups = {}
-		list.forEach((m, i) => {
-			if (!m) return
-			const key = Math.round(m.longitude / step) + ',' + Math.round(m.latitude / step)
-			if (!groups[key]) groups[key] = []
-			groups[key].push(i)
-		})
-		const dotIndexes = {}
-		Object.keys(groups).forEach(key => {
-			const arr = groups[key]
-			if (arr.length > 1) {
-				dotIndexes[arr[Math.floor(Math.random() * arr.length)]] = true
 			}
-		})
-		return list.map((m, i) => {
-			if (!m) return m
-			if (dotIndexes[i]) {
-				return {
-					id: m.id,
-					longitude: m.longitude,
-					latitude: m.latitude,
-					type: m.type,
-					iconPath: `/static/markers/dot_${m.type || 'other'}.png`,
-					width: 12,
-					height: 12,
-					zIndex: 0,
-					anchor: {
-						x: 0.5,
-						y: 0.5
-					}
+			// 非代表点：圆点
+			return {
+				id: m.id,
+				longitude: m.longitude,
+				latitude: m.latitude,
+				type: m.type,
+				iconPath: `/static/markers/dot_${m.type || 'other'}.png`,
+				width: 12,
+				height: 12,
+				zIndex: 0,
+				anchor: {
+					x: 0.5,
+					y: 0.5
 				}
 			}
-			const copy = Object.assign({}, m, {
-				zIndex: 999
-			})
-			delete copy.callout
-			return copy
 		})
 	})
 
@@ -397,8 +508,18 @@
 
 	function onRegionChange(e) {
 		const detail = e && e.detail
+		const type = detail && detail.type
+		// 开始拖动/缩放地图 → 自动收起面板
+		// （手指落在卡片上时会关闭地图手势，这里的 begin 只可能来自真正的地图操作）
+		if (type === 'begin') {
+			const interacting = sheetTouching.value || props.externalTouching || sheetScrolling.value
+			if (!interacting && bottomSheetHeight.value > sheetRange.value.min + 0.5) {
+				bottomSheetHeight.value = sheetRange.value.min
+			}
+			return
+		}
 		// 仅在地图移动/缩放结束时读取（begin 时 scale 尚未更新）
-		if (detail && detail.type && detail.type !== 'end') return
+		if (type && type !== 'end') return
 		const s = detail && Number(detail.scale)
 		if (Number.isFinite(s) && s > 0) {
 			currentScale.value = s
@@ -413,6 +534,26 @@
 			}
 		})
 	}
+
+	// 强制把地图移动/居中到指定坐标。
+	// 仅改 center 属性并不可靠：用户手动拖动地图后，center 的绑定值可能未变，
+	// 属性不变化原生地图就不会重新居中，表现为「点了回到当前位置没反应」。
+	// 用 MapContext.moveToLocation 可无视当前状态强制移动。
+	function moveToLocation(longitude, latitude) {
+		if (!instance) return
+		const ctx = uni.createMapContext('localMap', instance.proxy)
+		if (!ctx || typeof ctx.moveToLocation !== 'function') return
+		ctx.moveToLocation({
+			longitude: Number(longitude),
+			latitude: Number(latitude),
+			success: () => {},
+			fail: () => {}
+		})
+	}
+
+	defineExpose({
+		moveToLocation
+	})
 
 	function typeText(type) {
 		return getTypeLabel(type)
@@ -539,10 +680,17 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 4rpx 24rpx 16rpx;
+		/* 预留 1rpx 边框，滚动时显示，避免出现时跳动 */
+		border-bottom: 1rpx solid transparent;
+		transition: border-color 150ms ease;
+	}
+
+	.gm-list-header-bordered {
+		border-bottom-color: #E8EAED;
 	}
 
 	.gm-list-title {
-		font-size: 34rpx;
+		font-size: 38rpx;
 		font-weight: 700;
 		color: #202124;
 	}
@@ -574,7 +722,7 @@
 		flex-direction: column;
 		padding: 16rpx 16rpx;
 		margin-bottom: 12rpx;
-		border-radius: 16rpx;
+		border-radius: 0;
 		background-color: #FFFFFF;
 		box-shadow: 0 1rpx 4rpx rgba(0, 0, 0, 0.08);
 		cursor: pointer;

@@ -73,6 +73,20 @@
 	// 程序主动跳转地图（搜索/点选）期间，抑制 regionchange 触发的反向刷新，避免覆盖结果列表
 	let skipRegionUntil = 0
 
+	// 地址去「省/市」：去掉开头的 xxx省 / xxx自治区 / xxx特别行政区，
+	// 以及其后的 xxx市 / xxx自治州 / xxx地区 / xxx盟，从区/县开始。
+	// 例如「贵州省毕节市七星关区公园路」→「七星关区公园路」。
+	function stripProvinceCity(addr) {
+		const raw = String(addr || '').trim()
+		if (!raw) return ''
+		let s = raw
+		s = s.replace(/^[^省市区县路街号]{1,10}?(省|自治区|特别行政区)/, '')
+		s = s.replace(/^[^省区县路街号]{1,10}?(市|自治州|地区|盟)/, '')
+		s = s.trim()
+		// 去掉后若为空（如地址本身只有省+市），保底返回原值
+		return s || raw
+	}
+
 	onLoad((query) => {
 		const hasLongitude = query.longitude !== undefined && query.longitude !== ''
 		const hasLatitude = query.latitude !== undefined && query.latitude !== ''
@@ -134,8 +148,9 @@
 			const result = res.result || {}
 			const list = result.list || []
 			if (!keepCenterInfo) {
-				centerAddress.value = result.address || ''
-				centerName.value = list.length ? (list[0].title || result.address || '') : (result.address || '')
+				const addr = stripProvinceCity(result.address || '')
+				centerAddress.value = addr
+				centerName.value = list.length ? (list[0].title || addr || '') : (addr || '')
 			}
 			nearbyList.value = list.filter(item => {
 				const ilng = Number(item.longitude)
@@ -227,8 +242,9 @@
 		if (!Number.isFinite(lng) || !Number.isFinite(lat)) return
 		longitude.value = lng
 		latitude.value = lat
-		centerName.value = item.title || item.address || ''
-		centerAddress.value = item.address || item.title || ''
+		const addr = stripProvinceCity(item.address || '')
+		centerName.value = item.title || addr || ''
+		centerAddress.value = addr || item.title || ''
 		// 跳转地图到该地点，但保持当前列表不变
 		skipRegionUntil = Date.now() + 1500
 	}
@@ -259,8 +275,9 @@
 				nearbyList.value = list
 				longitude.value = lng
 				latitude.value = lat
-				centerName.value = first.title || first.address || ''
-				centerAddress.value = first.address || first.title || ''
+				const addr = stripProvinceCity(first.address || '')
+				centerName.value = first.title || addr || ''
+				centerAddress.value = addr || first.title || ''
 				skipRegionUntil = Date.now() + 1500
 			} else {
 				uni.showToast({

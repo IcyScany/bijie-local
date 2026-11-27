@@ -1,14 +1,21 @@
 'use strict'
 
 const db = uniCloud.database()
-const { requireSuperAdmin, getSuperAdminOpenid, getUserByOpenid } = require('cloud-auth')
+const { requireSuperAdmin, isSuperAdmin, getUserByOpenid } = require('cloud-auth')
 
 // 管理员列表（仅超级管理员）
 async function listAdmins(event) {
 	await requireSuperAdmin(event.token, { message: '仅超级管理员可查看' })
-	const superOpenid = await getSuperAdminOpenid()
 	const res = await db.collection('admin-whitelist').orderBy('create_date', 'asc').get()
 	const rows = res.data || []
+	// 超级管理员集合：有 is_super 标记的（可多个）；若无标记（旧数据），最早加入的视为超管
+	const superSet = {}
+	rows.forEach(r => {
+		if (r.is_super) superSet[r.openid] = true
+	})
+	if (!Object.keys(superSet).length && rows.length) {
+		superSet[rows[0].openid] = true
+	}
 	const openids = rows.map(item => item.openid)
 	const nameMap = {}
 	if (openids.length) {
@@ -21,13 +28,12 @@ async function listAdmins(event) {
 	}
 	const list = rows.map(item => {
 		const u = nameMap[item.openid]
-		const isSuper = !!superOpenid && item.openid === superOpenid
 		return {
 			openid: item.openid,
-			name: isSuper ? '超级管理员' : ((u && u.nickname) || item.name || ('用户' + String(item.openid).slice(-4))),
+			name: (u && u.nickname) || item.name || ('用户' + String(item.openid).slice(-4)),
 			remark: item.name || '',
 			avatar: (u && u.avatar) || '',
-			is_super: isSuper,
+			is_super: !!superSet[item.openid],
 			create_date: item.create_date || 0
 		}
 	})
@@ -84,7 +90,7 @@ async function removeAdmin(event) {
 	if (openid === currentOpenid) {
 		throw new Error('不能移除自己')
 	}
-	if (openid === (await getSuperAdminOpenid())) {
+	if (await isSuperAdmin(openid)) {
 		throw new Error('超级管理员不可移除')
 	}
 	await db.collection('admin-whitelist').where({
@@ -139,9 +145,41 @@ async function searchUsers(event) {
 	}
 }
 
+// 设置 / 取消超级管理员（仅超级管理员；不能取消自己的超管身份）
+async function setAdminSuper(event) {
+	const currentOpenid = await requireSuperAdmin(event.token, { message: '仅超级管理员可操作' })
+	const openid = String(event.openid || '').trim()
+	if (!openid) {
+		throw new Error('缺少 openid')
+	}
+	const isSuper = !!event.is_super
+	if (openid === currentOpenid && !isSuper) {
+		throw new Error('不能取消自己的超级管理员')
+	}
+	const exist = await db.collection('admin-whitelist').where({
+		openid
+	}).limit(1).get()
+	if (!exist.data || !exist.data.length) {
+		throw new Error('该用户不是管理员')
+	}
+	await db.collection('admin-whitelist').where({
+		openid
+	}).update({
+		is_super: isSuper
+	})
+	return {
+		code: 0,
+		data: {
+			openid,
+			is_super: isSuper
+		}
+	}
+}
+
 module.exports = {
 	listAdmins,
 	addAdmin,
 	removeAdmin,
+	setAdminSuper,
 	searchUsers
 }

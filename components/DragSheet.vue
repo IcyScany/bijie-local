@@ -10,8 +10,8 @@
 		@touchend.capture="onDragEnd"
 		@touchcancel.capture="onDragEnd"
 	>
-		<!-- 顶部区域：把手 + 头部 -->
-		<view class="gm-sheet-drag-area" @click="onHeaderClick">
+		<!-- 顶部区域：把手 + 头部（从这里开始拖动总是移动面板） -->
+		<view class="gm-sheet-drag-area" @click="onHeaderClick" @touchstart.capture="onHeaderTouchStart">
 			<view class="gm-bottom-sheet-handle">
 				<view class="gm-bottom-sheet-bar"></view>
 			</view>
@@ -54,6 +54,11 @@
 		maxHeight: {
 			type: Number,
 			default: 88
+		},
+		// 内容是否已滚动到顶部（用于决定向下拖动是滚动内容还是收起面板）
+		contentAtTop: {
+			type: Boolean,
+			default: true
 		}
 	})
 
@@ -65,6 +70,8 @@
 	const dragShield = ref(false)
 	let dragging = false
 	let dragStarted = false
+	// 本次拖动是否从「把手/头部」开始
+	let fromHeader = false
 	let dragStartY = 0
 	let dragStartHeight = 0
 	// 拖动阈值（px）：移动超过阈值才判定为拖动，避免影响点击与内容滚动
@@ -112,17 +119,31 @@
 	function onDragStart(e) {
 		dragging = true
 		dragStarted = false
+		fromHeader = false
 		dragStartY = e.touches[0].clientY
 		dragStartHeight = currentHeight.value
 		getViewportHeight()
 		emit('sheet-touchstart')
 	}
 
+	// 从把手/头部按下 → 本次拖动始终用于移动面板
+	function onHeaderTouchStart() {
+		fromHeader = true
+	}
+
 	function onDragMove(e) {
 		if (!dragging) return
 		const dy = dragStartY - e.touches[0].clientY
-		// 已展开到最大：向上拖动交给内容滚动，仅向下拖可缩小面板
-		if (expanded.value && dy > 0) return
+		if (expanded.value) {
+			// 已展开到最大：把这一帧交给内容滚动，并重设基准，
+			// 避免之后接管面板时高度从累计位移处跳变。
+			const handOffToScroll = dy > 0 || (!fromHeader && !props.contentAtTop)
+			if (handOffToScroll) {
+				dragStartY = e.touches[0].clientY
+				dragStartHeight = currentHeight.value
+				return
+			}
+		}
 		if (!dragStarted) {
 			if (Math.abs(dy) < DRAG_THRESHOLD) return
 			dragStarted = true
@@ -158,11 +179,34 @@
 		emit('update:height', currentHeight.value)
 	}
 
-	// 点击顶部区域：直接切到半屏（中间档位）
+	// 点击顶部区域：在 最低 / 半屏 / 全屏 三档间切换
+	// 最低 → 半屏 → 全屏 → 半屏 → 全屏 …
 	function onHeaderClick() {
 		if (isDragging.value) return
-		const mid = (props.minHeight + props.maxHeight) / 2
-		currentHeight.value = Math.round(clamp(mid) * 10) / 10
+		const { minHeight, maxHeight } = props
+		const min = minHeight
+		const mid = (minHeight + maxHeight) / 2
+		const max = maxHeight
+		// 取当前高度最接近的档位
+		const candidates = [min, mid, max]
+		let nearest = candidates[0]
+		let best = Infinity
+		candidates.forEach(c => {
+			const d = Math.abs(c - currentHeight.value)
+			if (d < best) {
+				best = d
+				nearest = c
+			}
+		})
+		let target
+		if (nearest === min) {
+			target = mid // 最低 → 半屏
+		} else if (nearest === max) {
+			target = mid // 全屏 → 半屏
+		} else {
+			target = max // 半屏 → 全屏
+		}
+		currentHeight.value = Math.round(clamp(target) * 10) / 10
 		emit('update:height', currentHeight.value)
 	}
 </script>

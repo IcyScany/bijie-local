@@ -6,12 +6,19 @@
 				<image v-if="avatarMap[item.openid]" class="admin-avatar" :src="avatarMap[item.openid]" mode="aspectFill" />
 				<view v-else class="admin-avatar admin-avatar-text">{{ avatarText(item.name) }}</view>
 				<view class="admin-info">
-					<text class="admin-name">{{ item.name }}</text>
-					<text v-if="item.remark && item.remark !== item.name" class="admin-remark">备注：{{ item.remark }}</text>
+					<view class="admin-name-row">
+						<text class="admin-name">{{ item.name }}</text>
+						<text class="admin-level" :class="{ 'level-super': item.is_super }">{{ item.is_super ? '超级管理员' : '管理员' }}</text>
+					</view>
+					<text v-if="item.remark && item.remark !== item.name && item.remark !== '超级管理员'" class="admin-remark">备注：{{ item.remark }}</text>
 					<text class="admin-openid">{{ item.openid }}</text>
 					<text class="admin-date">加入时间：{{ formatDate(item.create_date) }}</text>
 				</view>
-				<text v-if="!item.is_super" class="admin-remove" @click="confirmRemove(item)">移除</text>
+				<view class="admin-actions">
+					<text v-if="!item.is_super" class="admin-op" @click="toggleSuper(item, true)">设为超管</text>
+					<text v-else-if="item.openid !== myOpenid" class="admin-op" @click="toggleSuper(item, false)">取消超管</text>
+					<text v-if="!item.is_super" class="admin-remove" @click="confirmRemove(item)">移除</text>
+				</view>
 			</view>
 			<view v-if="!admins.length" class="empty">暂无管理员</view>
 		</view>
@@ -52,8 +59,11 @@
 <script setup>
 	import { ref, computed } from 'vue'
 	import { onShow } from '@dcloudio/uni-app'
-	import { ensureLogin, getToken, isAuthError, relogin, isSuperAdmin } from '@/utils/auth.js'
+	import { ensureLogin, getToken, isAuthError, relogin, isSuperAdmin, getOpenid, refreshAuthFlags } from '@/utils/auth.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
+
+	// 当前用户 openid（用于隐藏"取消自己的超管"按钮）
+	const myOpenid = getOpenid()
 
 	const admins = ref([])
 	const avatarMap = ref({})
@@ -72,6 +82,8 @@
 
 	onShow(async () => {
 		await ensureLogin().catch(() => {})
+		// 强制刷新超管标记，避免其他超管因本地缓存过期被误判
+		await refreshAuthFlags().catch(() => {})
 		if (!isSuperAdmin()) {
 			uni.showToast({
 				title: '仅超级管理员可访问',
@@ -229,6 +241,36 @@
 		}
 	}
 
+	// 设为 / 取消超级管理员
+	function toggleSuper(item, isSuper) {
+		uni.showModal({
+			title: isSuper ? '设为超级管理员' : '取消超级管理员',
+			content: isSuper
+				? '确定将「' + item.name + '」设为超级管理员？'
+				: '确定取消「' + item.name + '」的超级管理员？',
+			success: async (r) => {
+				if (!r.confirm) return
+				try {
+					await callAuth({
+						action: 'setAdminSuper',
+						openid: item.openid,
+						is_super: isSuper
+					})
+					await loadAdmins()
+					uni.showToast({
+						title: '已更新',
+						icon: 'success'
+					})
+				} catch (e) {
+					uni.showToast({
+						title: (e && e.message) || '操作失败',
+						icon: 'none'
+					})
+				}
+			}
+		})
+	}
+
 	function confirmRemove(item) {
 		uni.showModal({
 			title: '移除管理员',
@@ -344,9 +386,41 @@
 		color: $text-secondary;
 	}
 
-	.admin-remove {
+	.admin-name-row {
+		display: flex;
+		align-items: center;
+	}
+
+	.admin-level {
+		margin-left: $space-sm;
+		padding: 2rpx 14rpx;
+		font-size: $fs-xs;
+		line-height: 1.6;
+		color: $text-secondary;
+		background-color: $bg-fill;
+		border-radius: 100rpx;
+	}
+
+	.level-super {
+		color: #1A73E8;
+		background-color: rgba(26, 115, 232, 0.12);
+	}
+
+	.admin-actions {
 		flex-shrink: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 10rpx;
 		margin-left: $space-md;
+	}
+
+	.admin-op {
+		font-size: $fs-sm;
+		color: $brand;
+	}
+
+	.admin-remove {
 		font-size: $fs-sm;
 		color: $danger;
 	}

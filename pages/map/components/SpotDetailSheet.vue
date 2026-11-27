@@ -7,6 +7,7 @@
 			v-model:expanded="sheetExpanded"
 			:min-height="sheetMin"
 			:max-height="sheetMax"
+			:content-at-top="detailAtTop"
 			@sheet-touchstart="emit('sheet-touching', true)"
 			@sheet-touchend="emit('sheet-touching', false)"
 		>
@@ -14,7 +15,7 @@
 				<!-- 头部：名称 + 关闭 -->
 				<view class="gm-flex" style="justify-content: space-between; align-items: flex-start; padding: 0 24rpx 16rpx;">
 					<view style="flex: 1; overflow: hidden;">
-						<text style="font-size: 36rpx; font-weight: 700; color: #202124; line-height: 1.3; display: block; word-break: break-all;">{{ spot.name }}</text>
+						<text style="font-size: 40rpx; font-weight: 700; color: #202124; line-height: 1.3; display: block; word-break: break-all;">{{ spot.name }}</text>
 						<!-- 分类标签 + 评分（并排） -->
 						<view class="gm-flex" style="align-items: center; margin-top: 8rpx; gap: 12rpx; flex-wrap: wrap;">
 							<view class="gm-tag" :style="{ color: typeColor(spot.type), backgroundColor: typeBg(spot.type), fontSize: '22rpx', padding: '6rpx 16rpx' }">{{ typeText(spot.type) }}</view>
@@ -34,7 +35,7 @@
 			</template>
 
 			<!-- 滚动内容区 -->
-			<scroll-view style="flex: 1; height: 0; min-height: 0;" :scroll-y="sheetExpanded" :show-scrollbar="false">
+			<scroll-view style="flex: 1; height: 0; min-height: 0;" :scroll-y="sheetExpanded" :show-scrollbar="false" @scroll="onDetailScroll" @touchstart="emit('sheet-touching', true)" @touchend="emit('sheet-touching', false)" @touchcancel="emit('sheet-touching', false)">
 					<!-- 内容区 -->
 					<view style="padding: 0 24rpx 24rpx;">
 						<!-- 快速操作按钮 -->
@@ -49,7 +50,7 @@
 								<app-icon icon="addPhoto" width="34rpx" style="margin-right: 8rpx;" />添加图片
 							</button>
 							<button v-if="canManage" class="gm-btn gm-btn-tonal" style="display: flex; align-items: center; justify-content: center; height: 68rpx; line-height: 1; padding: 0 26rpx; font-size: 27rpx;" @click="openFeedback">
-								<app-icon icon="rateReview" width="34rpx" style="margin-right: 8rpx;" />共创
+								<app-icon icon="rateReview" width="34rpx" style="margin-right: 8rpx;" />反馈
 							</button>
 						</view>
 
@@ -259,7 +260,7 @@
 		}
 	})
 
-	const emit = defineEmits(['close', 'preview', 'route', 'comment-added', 'comment-removed', 'favorite', 'addImage', 'sheet-touching'])
+	const emit = defineEmits(['close', 'preview', 'route', 'comment-added', 'comment-removed', 'favorite', 'addImage', 'sheet-touching', 'cover-height'])
 
 	// 仅管理员可执行评价/反馈/补充图片等操作
 	const canManage = ref(isAdmin())
@@ -295,6 +296,24 @@
 	}
 
 	onMounted(measureRange)
+
+	// 详情内容滚动期间，持续告诉地图「正在进行卡片交互」以关闭地图手势，
+	// 停止滚动后再恢复。@scroll 由 scroll-view 自身触发，比触摸事件更可靠。
+	// 上报详情面板高度（vh），供地图据此收缩，避免地图被详情覆盖
+	watch(sheetHeight, (v) => emit('cover-height', v), {
+		immediate: true
+	})
+
+	// 详情内容是否已滚到顶部（决定向下拖动是滚动内容还是收起面板）
+	const detailAtTop = ref(true)
+	let detailScrollTimer = null
+	function onDetailScroll(e) {
+		const top = (e && e.detail && Number(e.detail.scrollTop)) || 0
+		detailAtTop.value = top <= 1
+		emit('sheet-touching', true)
+		if (detailScrollTimer) clearTimeout(detailScrollTimer)
+		detailScrollTimer = setTimeout(() => emit('sheet-touching', false), 200)
+	}
 
 	watch(() => props.visible, (v) => {
 		if (v) {

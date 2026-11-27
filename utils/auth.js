@@ -156,6 +156,21 @@ export function ensureLogin() {
 	return verifyPromise
 }
 
+// 强制向服务端刷新管理员标记（进入管理页前调用，避免使用过期的本地缓存）
+export function refreshAuthFlags() {
+	const cache = readCache()
+	if (!cache.token) {
+		return startLogin()
+	}
+	return verifyToken(cache.token).then((valid) => {
+		if (!valid) {
+			clearAuth()
+			return startLogin()
+		}
+		return readCache()
+	}).catch(() => cache)
+}
+
 // 读取本地保存的登录 token
 export function getToken() {
 	return uni.getStorageSync(TOKEN_KEY) || ''

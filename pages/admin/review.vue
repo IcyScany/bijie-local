@@ -2,6 +2,7 @@
 	<view class="page">
 		<view class="toolbar">
 			<input class="search" v-model="keyword" placeholder="搜索地点名称" confirm-type="search" @confirm="loadList" />
+			<text class="notify-btn" @click="subscribeNotify">开启提醒</text>
 		</view>
 
 		<scroll-view class="filter-scroll" scroll-x :show-scrollbar="false">
@@ -119,7 +120,8 @@
 <script setup>
 	import { ref, computed } from 'vue'
 	import { onLoad, onShow } from '@dcloudio/uni-app'
-	import { ensureLogin, isSuperAdmin, getToken, isAuthError, relogin } from '@/utils/auth.js'
+	import { ensureLogin, isSuperAdmin, getToken, isAuthError, relogin, refreshAuthFlags } from '@/utils/auth.js'
+	import { REVIEW_TEMPLATE_ID } from '@/utils/subscribe.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
 	import { PLACE_TYPES, getTypeLabel, getTypeColor } from '@/utils/placeTypes.js'
 	import { compressImage, filterOversizeImages } from '@/utils/image.js'
@@ -204,6 +206,8 @@
 		try {
 			await ensureLogin()
 		} catch (e) {}
+		// 强制刷新超管标记，避免本地缓存过期导致其他超管被误判
+		await refreshAuthFlags().catch(() => {})
 		if (!isSuperAdmin()) {
 			uni.showToast({
 				title: '仅超级管理员可访问',
@@ -220,6 +224,33 @@
 	onShow(() => {
 		loadList()
 	})
+
+	// 开启待审核提醒（订阅消息，需用户点击触发）
+	function subscribeNotify() {
+		if (typeof uni.requestSubscribeMessage !== 'function') {
+			uni.showToast({
+				title: '当前环境不支持',
+				icon: 'none'
+			})
+			return
+		}
+		uni.requestSubscribeMessage({
+			tmplIds: [REVIEW_TEMPLATE_ID],
+			success: (res) => {
+				const accepted = res && res[REVIEW_TEMPLATE_ID] === 'accept'
+				uni.showToast({
+					title: accepted ? '已开启提醒' : '未开启提示',
+					icon: 'none'
+				})
+			},
+			fail: () => {
+				uni.showToast({
+					title: '开启失败',
+					icon: 'none'
+				})
+			}
+		})
+	}
 
 	function showError(err) {
 		const msg = (err && (err.errMsg || err.message)) || '操作失败'
@@ -259,7 +290,6 @@
 				keyword: keyword.value,
 				type: filterType.value,
 				status: filterStatus.value,
-				source: 'user',
 				withImages: true,
 				page: 1,
 				pageSize: 100
@@ -607,6 +637,17 @@
 		&:focus {
 			background-color: $bg-fill-hover;
 		}
+	}
+
+	.notify-btn {
+		flex-shrink: 0;
+		padding: 0 24rpx;
+		height: 80rpx;
+		line-height: 80rpx;
+		font-size: $fs-sm;
+		color: $brand;
+		background-color: $bg-fill;
+		border-radius: $radius-pill;
 	}
 
 	.add-btn {

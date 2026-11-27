@@ -120,7 +120,7 @@
 <script setup>
 	import { ref, computed } from 'vue'
 	import { onLoad, onShow } from '@dcloudio/uni-app'
-	import { ensureLogin, isSuperAdmin, getToken, isAuthError, relogin } from '@/utils/auth.js'
+	import { ensureLogin, isSuperAdmin, getToken, isAuthError, relogin, refreshAuthFlags } from '@/utils/auth.js'
 	import { resolveCloudFiles } from '@/utils/cloudFile.js'
 	import { PLACE_TYPES, getTypeLabel, getTypeColor } from '@/utils/placeTypes.js'
 	import { compressImage, filterOversizeImages } from '@/utils/image.js'
@@ -206,6 +206,8 @@
 		try {
 			await ensureLogin()
 		} catch (e) {}
+		// 强制刷新超管标记，避免本地缓存过期导致其他超管被误判
+		await refreshAuthFlags().catch(() => {})
 		if (!isSuperAdmin()) {
 			uni.showToast({
 				title: '仅超级管理员可访问',

@@ -3,10 +3,11 @@
 const db = uniCloud.database()
 const dbCmd = db.command
 const collection = db.collection('spots')
-const { requireAdmin, requireSuperAdmin, resolveContributorName } = require('cloud-auth')
+const { requireAdmin, requireSuperAdmin, isSuperAdmin, resolveContributorName } = require('cloud-auth')
 const { TYPE_LIST, REPORT_TYPE_LIST } = require('./constants')
 const { buildUpdateData, normalizeImages } = require('./helpers')
 const { recordContribution, syncSpotContributions, revokeSpotContributions } = require('./contributions')
+const { notifyPendingReview } = require('./notify')
 
 // 管理员为已通过审核的地点补充图片：生成待审核投稿（审核通过后再合并到目标地点）
 async function addImages(id, images, token) {
@@ -31,7 +32,31 @@ async function addImages(id, images, token) {
 	const now = Date.now()
 	const contributorName = await resolveContributorName(openid)
 
-	// 复用 spots 记录作为待审核投稿：report_type=image，target_id 指向目标地点
+	// 超级管理员补图：直接合并到目标地点并生效，无需审核
+	if (await isSuperAdmin(openid)) {
+		const merged = Array.isArray(spot.images) ? spot.images.slice() : []
+		list.forEach(img => {
+			if (img && merged.indexOf(img) === -1 && merged.length < 9) {
+				merged.push(img)
+			}
+		})
+		await collection.doc(id).update({
+			images: merged,
+			update_date: Date.now()
+		})
+		await recordContribution(openid, 'image', {
+			spotId: id,
+			spotName: spot.name || '',
+			reportType: 'image',
+			imageCount: list.length
+		}, 'approved')
+		return {
+			id,
+			pending: false
+		}
+	}
+
+	// 普通管理员：复用 spots 记录作为待审核投稿：report_type=image，target_id 指向目标地点
 	const addRes = await collection.add({
 		name: spot.name || '图片补充',
 		type: spot.type || 'other',
@@ -55,6 +80,13 @@ async function addImages(id, images, token) {
 		reportType: 'image',
 		imageCount: list.length
 	}, 'pending')
+
+	// 通知所有超级管理员：有新的待审核数据
+	await notifyPendingReview({
+		applicantName: contributorName,
+		reportType: 'image',
+		time: now
+	})
 
 	return {
 		id: addRes.id,
@@ -201,6 +233,14 @@ async function submit(data = {}, token) {
 		reportType: record.report_type,
 		reportReason: record.report_reason || ''
 	}, 'pending')
+
+	// 通知所有超级管理员：有新的待审核数据
+	await notifyPendingReview({
+		applicantName: record.contributor_name,
+		reportType: record.report_type,
+		time: record.create_date
+	})
+
 	return {
 		id: res.id
 	}

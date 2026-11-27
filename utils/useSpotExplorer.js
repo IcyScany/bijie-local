@@ -88,6 +88,11 @@ export function useSpotExplorer(options = {}) {
 				latitude,
 				title: spot.name,
 				type: spot.type,
+				// 是否当前选中（选中时地图需强制显示其名称，不受标签抽稀影响）
+				selected: active,
+				// 供地图标签抽稀时挑选「代表点」使用（评分 > 距离 > 评论数 > 名称）
+				rating: Number(spot.rating) || 0,
+				rating_count: Number(spot.rating_count) || 0,
 				iconPath: `/static/markers/${getTypeIcon(spot.type)}.png`,
 				width: active ? 50 : 40,
 				height: active ? 50 : 40,

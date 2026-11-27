@@ -13,6 +13,7 @@ const ACTIONS = Object.assign(Object.create(null), {
 	listAdmins: admin.listAdmins,
 	addAdmin: admin.addAdmin,
 	removeAdmin: admin.removeAdmin,
+	setAdminSuper: admin.setAdminSuper,
 	searchUsers: admin.searchUsers
 })
 

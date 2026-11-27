@@ -3,7 +3,7 @@
 		<!-- 搜索框 -->
 		<view class="gm-search-wrap">
 			<view class="gm-search" @click="enterSearch">
-				<app-icon class="gm-search-leading" icon="exploreNearby" size="lg" color="inherit" :custom-style="{ display: 'block', alignSelf: 'center', marginRight: '8rpx', filter: 'brightness(0.4)' }" />
+				<app-icon class="gm-search-leading" icon="exploreNearby" color="inherit" width="44rpx" height="44rpx" :custom-style="{ display: 'block', alignSelf: 'center', marginLeft: '-4rpx', filter: 'brightness(0.4)' }" />
 				<input
 					class="gm-search-input"
 					placeholder="在此处搜索"
@@ -13,13 +13,13 @@
 					@focus="enterSearch"
 					@confirm="onConfirm"
 				/>
-				<app-icon class="gm-search-trailing" icon="search" color="inherit" width="36rpx" height="36rpx" :custom-style="{ display: 'block', alignSelf: 'center', marginLeft: '12rpx', filter: 'brightness(0.4)' }" />
+				<app-icon class="gm-search-trailing" icon="search" color="inherit" width="40rpx" height="40rpx" :custom-style="{ display: 'block', alignSelf: 'center', filter: 'brightness(0.4)' }" />
 			</view>
 		</view>
 
-		<!-- 分类过滤 -->
+		<!-- 分类过滤（横向滚动、区域 100% 宽、仅左侧留一点 padding） -->
 		<scroll-view scroll-x :show-scrollbar="false" style="white-space: nowrap;">
-			<view class="gm-flex" style="gap: 8rpx; padding-right: 16rpx;">
+			<view class="gm-flex" style="gap: 12rpx; padding: 6rpx 0 12rpx 16rpx;">
 				<view
 					v-for="item in categories"
 					:key="item.value"
@@ -30,7 +30,8 @@
 					<view v-if="item.icon" class="gm-chip-icon">
 						<app-icon
 							:icon="item.icon"
-							size="lg"
+							width="32rpx"
+							height="32rpx"
 							:color="category === item.value ? 'inherit' : 'primary'"
 							:custom-style="category === item.value ? { opacity: 1, filter: 'brightness(2)' } : { opacity: 1, filter: 'brightness(0.12) hue-rotate(210deg) saturate(2)' }"
 						/>
@@ -44,7 +45,7 @@
 		<view v-if="searching" class="gm-search-page">
 			<view class="gm-search-page-bar">
 				<view class="gm-search gm-search-page-box">
-					<app-icon class="gm-search-leading" icon="arrowBack" color="inherit" width="40rpx" height="40rpx" :custom-style="{ display: 'block', alignSelf: 'center', marginRight: '8rpx', filter: 'brightness(0.4)' }" clickable @click="exitSearch" />
+					<app-icon class="gm-search-leading" icon="arrowBack" color="inherit" width="40rpx" height="40rpx" :custom-style="{ display: 'block', alignSelf: 'center', filter: 'brightness(0.4)' }" clickable @click="exitSearch" />
 					<input
 						class="gm-search-input"
 						:value="keyword"
@@ -54,7 +55,7 @@
 						@input="onInput"
 						@confirm="onSearchConfirm"
 					/>
-					<app-icon v-if="trimmedKeyword" class="gm-search-trailing" icon="cancel" size="lg" color="inherit" :custom-style="{ display: 'block', alignSelf: 'center', marginLeft: '12rpx', filter: 'brightness(0.4)' }" clickable @click="clearKeyword" />
+					<app-icon v-if="trimmedKeyword" class="gm-search-trailing" icon="cancel" color="inherit" width="40rpx" height="40rpx" :custom-style="{ display: 'block', alignSelf: 'center', filter: 'brightness(0.4)' }" clickable @click="clearKeyword" />
 				</view>
 			</view>
 
@@ -319,13 +320,14 @@
 		left: 0;
 		right: 0;
 		z-index: 10;
-		padding: 16rpx;
+		/* 左右内边距交给搜索框自己（margin），分类滚动区才能占满 100% 宽 */
+		padding: 16rpx 0;
 	}
 
 	.gm-search-wrap {
 		position: relative;
 		z-index: 12;
-		margin-bottom: 12rpx;
+		margin: 0 16rpx 12rpx;
 	}
 
 	/* 搜索状态页（全屏，层级最高，覆盖地图/列表/tabbar 之上） */
@@ -343,8 +345,6 @@
 
 	.gm-search-page-bar {
 		padding: 16rpx;
-		padding-top: calc(16rpx + constant(safe-area-inset-top));
-		padding-top: calc(16rpx + env(safe-area-inset-top));
 	}
 
 	.gm-search-page-box {
@@ -356,7 +356,7 @@
 
 	.gm-search-leading {
 		flex-shrink: 0;
-		margin-right: 16rpx;
+		margin-right: 12rpx;
 	}
 
 	.gm-search-trailing {

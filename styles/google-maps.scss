@@ -372,12 +372,12 @@ $fs-2xl: 42rpx;
 
 /* 地图页chip样式（复用 .gm-chip 基础，仅保留差异：更紧凑） */
 .gm-chip-map {
-	height: 64rpx;
-	line-height: 64rpx;
-	padding: 0 18rpx;
-	font-size: 26rpx;
+	height: 58rpx;
+	line-height: 58rpx;
+	padding: 0 14rpx;
+	font-size: 28rpx;
 	gap: 6rpx;
-	box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.08);
+	box-shadow: 0 1rpx 4rpx rgba(0, 0, 0, 0.30);
 }
 
 .gm-chip-map:active {
@@ -388,7 +388,7 @@ $fs-2xl: 42rpx;
 	color: #FFFFFF;
 	background-color: #1A73E8;
 	border-color: #1A73E8;
-	box-shadow: 0 4rpx 14rpx rgba(26, 115, 232, 0.3);
+	box-shadow: 0 2rpx 6rpx rgba(26, 115, 232, 0.50);
 }
 
 .gm-chip-map.gm-chip-selected:active {
@@ -474,13 +474,13 @@ $fs-2xl: 42rpx;
 	padding: 0 $space-md;
 	background-color: $bg-card;
 	border-radius: $radius-pill;
-	box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+	box-shadow: 0 3rpx 8rpx rgba(0, 0, 0, 0.38);
 	transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
 	border: none;
 }
 
 .gm-search:focus-within {
-	box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.15);
+	box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.46);
 }
 
 .gm-search-icon {
@@ -495,11 +495,11 @@ $fs-2xl: 42rpx;
 	flex-shrink: 0;
 }
 
-.gm-search-input {
+	.gm-search-input {
 	flex: 1;
 	min-width: 0;
 	height: 100%;
-	font-size: 28rpx;
+	font-size: 32rpx;
 	color: $text-main;
 	background-color: transparent;
 	border: none;
@@ -537,7 +537,7 @@ $fs-2xl: 42rpx;
 /* ── Google Maps 底部面板 ── */
 .gm-bottom-sheet {
 	background-color: $bg-card;
-	border-radius: 28rpx 28rpx 0 0;
+	border-radius: 34rpx 34rpx 0 0;
 	box-shadow: 0 -4rpx 16rpx rgba(60, 64, 67, 0.15);
 	overflow: hidden;
 	display: flex;
@@ -561,7 +561,8 @@ $fs-2xl: 42rpx;
 	justify-content: center;
 	align-items: center;
 	padding: 12rpx 0 8rpx;
-	background-color: $bg-card;
+	/* 透明：露出面板顶部的圆角（背景色由 .gm-bottom-sheet 提供） */
+	background-color: transparent;
 	cursor: grab;
 	user-select: none;
 	-webkit-user-select: none;
@@ -574,7 +575,7 @@ $fs-2xl: 42rpx;
 
 .gm-bottom-sheet-handle:active {
 	cursor: grabbing;
-	background-color: #F1F3F4;
+	/* 不铺背景，避免按下时把顶部圆角盖成直角 */
 }
 
 .gm-bottom-sheet-bar {
@@ -941,7 +942,7 @@ $fs-2xl: 42rpx;
 /* 地点名称 */
 .gm-place-name {
 	display: block;
-	font-size: 32rpx;
+	font-size: 34rpx;
 	font-weight: 600;
 	color: #202124;
 	line-height: 1.4;

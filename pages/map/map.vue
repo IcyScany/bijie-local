@@ -2,6 +2,7 @@
 	<view class="gm-page" :style="pageStyle">
 		<!-- 地图 + 列表 -->
 		<MapExplorer
+			ref="explorerRef"
 			:center="center"
 			:scale="scale"
 			:markers="markers"
@@ -13,6 +14,9 @@
 			:category-label="categoryLabel"
 			:user-location="userLocation"
 			:hide-sheet="detailVisible || searchActive"
+			:detail-active="detailVisible"
+			:detail-height="detailCoverVh"
+			:search-active="searchActive"
 			v-model:sort-by="sortBy"
 			:default-collapsed="true"
 			:show-locate="!searchActive"
@@ -57,12 +61,13 @@
 			@favorite="toggleFavorite"
 			@add-image="chooseSpotImages"
 			@sheet-touching="mapTouching = $event"
+			@cover-height="detailCoverVh = $event"
 		/>
 	</view>
 </template>
 
 <script setup>
-	import { ref, computed, watch } from 'vue'
+	import { ref, computed, watch, nextTick } from 'vue'
 	import { onShow, onHide } from '@dcloudio/uni-app'
 	import { ensureLogin, getToken, isAuthError, relogin, isAdmin } from '@/utils/auth.js'
 	import { getMapCategories } from '@/utils/placeTypes.js'
@@ -109,6 +114,10 @@
 	const centeredToUser = ref(false)
 	// 详情面板拖动中：临时禁用地图手势，避免触摸穿透
 	const mapTouching = ref(false)
+	// 地图容器引用：用于强制重新居中（回到当前位置）
+	const explorerRef = ref(null)
+	// 详情面板高度（vh）：详情打开时地图据此收缩，避免重叠、保证地图仍可拖动
+	const detailCoverVh = ref(0)
 
 	const loading = ref(false)
 	const loadingMore = ref(false)
@@ -231,6 +240,12 @@
 					latitude: res.latitude
 				}
 				scale.value = 16
+				// 强制重新居中：用户拖动过地图后仅改 center 可能不生效，会导致「点了没反应」
+				nextTick(() => {
+					if (explorerRef.value && explorerRef.value.moveToLocation) {
+						explorerRef.value.moveToLocation(res.longitude, res.latitude)
+					}
+				})
 			},
 			fail: () => {
 				uni.showToast({
@@ -564,9 +579,18 @@
 				await relogin()
 				res = await spotsObj.addImages(spotId, ids, getToken())
 			}
-			// 提交成功后进入待审核，通过后图片才会展示
+			// 普通管理员：提交后进入待审核；超级管理员：直接生效
+			const pending = !(res && res.pending === false)
+			if (!pending) {
+				try {
+					const d = await spotsObj.getDetail(spotId)
+					if (d && d.data && currentSpot.value) {
+						currentSpot.value = Object.assign({}, currentSpot.value, d.data)
+					}
+				} catch (e) {}
+			}
 			uni.showToast({
-				title: '已提交，等待审核',
+				title: pending ? '已提交，等待审核' : '已添加图片',
 				icon: 'none'
 			})
 		} catch (err) {

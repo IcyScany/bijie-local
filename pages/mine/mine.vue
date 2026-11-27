@@ -116,6 +116,7 @@
 	import { ref, getCurrentInstance } from 'vue'
 	import { onShow } from '@dcloudio/uni-app'
 	import { ensureLogin, getUserInfo, getToken, isAdmin } from '@/utils/auth.js'
+	import { requestReviewSubscribe } from '@/utils/subscribe.js'
 	import { resolveCloudFile } from '@/utils/cloudFile.js'
 	import { compressImage, getFileSize, MAX_IMAGE_SIZE } from '@/utils/image.js'
 
@@ -387,8 +388,11 @@
 	}
 
 	function goReview() {
-		uni.navigateTo({
-			url: '/pages/admin/review'
+		// 点击「审核管理」时顺便请求订阅待审核提醒（订阅消息必须在点击事件里触发）
+		requestReviewSubscribe(() => {
+			uni.navigateTo({
+				url: '/pages/admin/review'
+			})
 		})
 	}
 
